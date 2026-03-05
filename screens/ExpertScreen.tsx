@@ -17,11 +17,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 const OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_KEY ?? '';
-const CHAT_KEY = '@lawngenius_expert_chat';
+const CHAT_KEY = '@gardengenius_expert_chat';
 const MAX_STORED_MESSAGES = 20;
 
 const SYSTEM_PROMPT =
-  'You are LawnGenius Expert, a professional lawn care advisor with 20 years of experience. ' +
+  'You are GardenGenius Expert, a professional lawn care advisor with 20 years of experience. ' +
   'Give specific, actionable advice. Be friendly but concise. ' +
   'Always ask for location/grass type if relevant to the question. ' +
   'Keep responses under 150 words unless the question requires more detail.';
@@ -193,7 +193,7 @@ export default function ExpertScreen() {
           {messages.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🌿</Text>
-              <Text style={styles.emptyTitle}>LawnGenius Expert</Text>
+              <Text style={styles.emptyTitle}>GardenGenius Expert</Text>
               <Text style={styles.emptyText}>
                 Ask me anything about your lawn — grass types, fertilizing, weed control, watering schedules, and more.
               </Text>

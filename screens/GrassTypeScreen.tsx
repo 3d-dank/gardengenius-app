@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 const OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_KEY ?? '';
-const GRASS_KEY = '@lawngenius_grasstype';
+const GRASS_KEY = '@gardengenius_grasstype';
 
 const GRASS_EMOJIS: Record<string, string> = {
   'Kentucky Bluegrass': '🌿',

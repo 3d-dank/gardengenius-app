@@ -105,7 +105,7 @@ export default function ProductCarousel({ products, diagnosis }: Props) {
 
       {/* Affiliate disclaimer */}
       <Text style={styles.disclaimer}>
-        As an Amazon Associate, LawnGenius earns from qualifying purchases.
+        As an Amazon Associate, GardenGenius earns from qualifying purchases.
       </Text>
     </View>
   );

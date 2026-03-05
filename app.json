@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "LawnGenius",
-    "slug": "lawngenius",
+    "name": "GardenGenius",
+    "slug": "gardengenius-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,24 +9,24 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "cover",
-      "backgroundColor": "#1B4332"
+      "backgroundColor": "#2D6A1F"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.topdogai.lawngenius",
+      "bundleIdentifier": "com.topdogai.gardengenius",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "LawnIQ uses your location to map your yard boundary and provide zone-specific lawn care recommendations.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "LawnIQ uses your location to map your yard boundary and provide zone-specific lawn care recommendations."
+        "NSLocationWhenInUseUsageDescription": "GardenGenius uses your location to provide frost date info and region-specific planting recommendations.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GardenGenius uses your location to provide frost date info and region-specific planting recommendations."
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#1B4332"
+        "backgroundColor": "#2D6A1F"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.topdogai.lawngenius"
+      "package": "com.topdogai.gardengenius"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,12 +36,12 @@
       "expo-location",
       ["expo-notifications", {
         "icon": "./assets/icon.png",
-        "color": "#1B4332"
+        "color": "#2D6A1F"
       }],
       [
         "expo-image-picker",
         {
-          "photosPermission": "LawnGenius uses your photos to analyze your lawn."
+          "photosPermission": "GardenGenius uses your photos to analyze your plants."
         }
       ],
       [

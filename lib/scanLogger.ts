@@ -1,5 +1,5 @@
 /**
- * LawnGenius - Scan Logger
+ * GardenGenius - Scan Logger
  *
  * Logs scan results to Supabase for research and improvement purposes.
  * All data is associated with an anonymous device ID — no personal
@@ -7,7 +7,7 @@
  *
  * PRIVACY NOTE: Scan data (lawn photos, diagnosis results, GPS coords, and
  * weather conditions) may be used for research and product improvement per
- * the LawnGenius Privacy Policy. No personally identifiable information is
+ * the GardenGenius Privacy Policy. No personally identifiable information is
  * stored. Users can request deletion of their data by device ID.
  */
 
@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { uploadScanPhoto } from './storage';
 
-const DEVICE_ID_KEY = '@lawngenius_device_id';
+const DEVICE_ID_KEY = '@gardengenius_device_id';
 
 /**
  * Get or create a persistent anonymous device ID.
@@ -102,6 +102,6 @@ async function _logScanAsync(data: ScanLogData): Promise<void> {
   });
 
   if (error) {
-    console.warn('[LawnGenius] Scan log error:', error.message);
+    console.warn('[GardenGenius] Scan log error:', error.message);
   }
 }

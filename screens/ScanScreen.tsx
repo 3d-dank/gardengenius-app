@@ -15,19 +15,19 @@ import { logScan } from '../lib/scanLogger';
 import { getProductsForDiagnosis } from '../lib/products';
 import ProductCarousel from '../components/ProductCarousel';
 import {
-  COLORS, GRADIENTS, GLASS, NEO, RADIUS, SPACING, TYPOGRAPHY,
+  COLORS, GRADIENTS, GLASS, NEO, RADIUS, SPACING,
   getSeverityColor,
 } from '../lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_KEY ?? '';
-const HISTORY_KEY = '@lawngenius_history';
+const HISTORY_KEY = '@gardengenius_history';
 
 const ANALYZING_STEPS = [
-  'Analyzing grass type...',
-  'Checking for disease...',
-  'Consulting agronomist database...',
-  'Preparing recommendations...',
+  'Identifying plant species...',
+  'Scanning for diseases & pests...',
+  'Consulting plant pathology database...',
+  'Preparing care recommendations...',
 ];
 
 interface Diagnosis {
@@ -114,7 +114,6 @@ export default function ScanScreen() {
       stepInterval.current = setInterval(() => {
         setAnalyzingStep(prev => (prev + 1) % ANALYZING_STEPS.length);
       }, 1500);
-      // Animate progress bar
       Animated.timing(progressAnim, { toValue: 1, duration: 6000, useNativeDriver: false }).start();
     } else {
       if (stepInterval.current) clearInterval(stepInterval.current);
@@ -194,7 +193,20 @@ export default function ScanScreen() {
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: 'You are an expert lawn care agronomist. Analyze this lawn photo and respond ONLY with valid JSON (no markdown) with these exact fields: {"problem":"name of issue or Healthy Lawn","confidence":85,"severity":"Low|Medium|High|None","description":"2-3 sentence explanation","treatment":"specific product and application rate per 1000 sq ft","timing":"when to apply","preventionTip":"one prevention tip"}' },
+            {
+              type: 'text',
+              text: `You are an expert plant pathologist and horticulturist. Analyze this garden plant photo and respond ONLY with valid JSON (no markdown) with these exact fields:
+{
+  "problem": "name of issue (e.g. 'Powdery Mildew', 'Aphid Infestation', 'Tomato Blight', 'Nutrient Deficiency', 'Root Rot', 'Overwatering') or 'Healthy Plant' if no issues",
+  "confidence": 85,
+  "severity": "Low|Medium|High|None",
+  "description": "2-3 sentence explanation covering plant species if identifiable, what you observe, and why it is concerning",
+  "treatment": "specific organic or chemical treatment recommendation with application method",
+  "timing": "when to apply treatment or next care step",
+  "preventionTip": "one actionable prevention tip for this specific issue"
+}
+Focus on: plant species identification, disease/pest diagnosis (blight, powdery mildew, aphids, scale, spider mites), nutrient deficiencies (nitrogen, iron, calcium), watering issues (overwatering, underwatering, root rot), and environmental stress.`,
+            },
             { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}`, detail: 'low' } }
           ]
         }],
@@ -222,7 +234,7 @@ export default function ScanScreen() {
         longitude: location?.longitude,
       });
     } catch (e) {
-      Alert.alert('Analysis failed', 'Could not analyze the image. Try again.');
+      Alert.alert('Analysis failed', 'Could not analyze the image. Please try again.');
     }
     setAnalyzing(false);
   };
@@ -248,7 +260,7 @@ export default function ScanScreen() {
         <SafeAreaView style={styles.permContainer}>
           <Text style={styles.permIcon}>📷</Text>
           <Text style={styles.permTitle}>Camera Access Needed</Text>
-          <Text style={styles.permText}>Allow camera to scan your lawn for AI diagnosis</Text>
+          <Text style={styles.permText}>Allow camera to scan your plants for AI diagnosis</Text>
           <TouchableOpacity style={[NEO.buttonPrimary, styles.permBtnWrap]} onPress={requestPermission}>
             <LinearGradient colors={GRADIENTS.lime} style={styles.permBtn}>
               <Text style={styles.permBtnText}>Allow Camera</Text>
@@ -278,7 +290,6 @@ export default function ScanScreen() {
             {/* Analyzing state */}
             {analyzing && (
               <View style={[GLASS.card, styles.analyzingCard]}>
-                {/* Progress bar */}
                 <View style={styles.progressTrack}>
                   <Animated.View style={[
                     styles.progressBar,
@@ -292,7 +303,7 @@ export default function ScanScreen() {
                 </View>
                 <ActivityIndicator size="large" color={COLORS.limeAccent} style={{ marginTop: 16 }} />
                 <Text style={styles.analyzingText}>{ANALYZING_STEPS[analyzingStep]}</Text>
-                <Text style={styles.analyzingSub}>AI agronomist at work...</Text>
+                <Text style={styles.analyzingSub}>AI plant pathologist at work...</Text>
               </View>
             )}
 
@@ -302,7 +313,7 @@ export default function ScanScreen() {
                 {/* Severity badge */}
                 <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(result.severity) + '25', borderColor: getSeverityColor(result.severity) + '50' }]}>
                   <Text style={[styles.severityText, { color: getSeverityColor(result.severity) }]}>
-                    {result.severity === 'None' ? '✅ Healthy' : `⚠️ ${result.severity} Severity`}
+                    {result.severity === 'None' ? '✅ Healthy Plant' : `⚠️ ${result.severity} Severity`}
                   </Text>
                 </View>
 
@@ -346,7 +357,7 @@ export default function ScanScreen() {
             {!analyzing && (
               <TouchableOpacity style={[NEO.buttonSecondary, styles.resetBtnWrap]} onPress={reset}>
                 <View style={[GLASS.card, styles.resetBtn]}>
-                  <Text style={styles.resetBtnText}>📷  Scan Another</Text>
+                  <Text style={styles.resetBtnText}>📷  Scan Another Plant</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -373,7 +384,7 @@ export default function ScanScreen() {
         <SafeAreaView style={styles.overlay}>
           {/* Top instructions */}
           <View style={styles.instructionsWrap}>
-            <Text style={styles.instructions}>Point at your lawn or problem area</Text>
+            <Text style={styles.instructions}>Point at your plant or affected leaf</Text>
           </View>
 
           {/* Scan frame with corner brackets */}
@@ -382,7 +393,7 @@ export default function ScanScreen() {
             <View style={[styles.corner, styles.tr]} />
             <View style={[styles.corner, styles.bl]} />
             <View style={[styles.corner, styles.br]} />
-            <Text style={styles.frameTip}>Keep grass in frame</Text>
+            <Text style={styles.frameTip}>Keep plant in frame</Text>
           </View>
 
           {/* Controls row */}
@@ -476,12 +487,12 @@ const styles = StyleSheet.create({
   confidenceFill: { height: 4, borderRadius: 2 },
   description: { fontSize: 15, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SPACING.md },
   section: {
-    backgroundColor: 'rgba(126,200,69,0.08)',
+    backgroundColor: 'rgba(139,195,74,0.08)',
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
-    borderColor: 'rgba(126,200,69,0.15)',
+    borderColor: 'rgba(139,195,74,0.15)',
   },
   sectionTitle: { fontWeight: '700', color: COLORS.limeAccent, fontSize: 13, marginBottom: 6 },
   sectionText: { color: COLORS.textSecondary, fontSize: 14, lineHeight: 20 },

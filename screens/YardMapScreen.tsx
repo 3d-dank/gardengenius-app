@@ -13,7 +13,7 @@ import MapView, { Marker, Polyline, Polygon, PROVIDER_DEFAULT } from 'react-nati
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const YARD_KEY = '@lawngenius_yard';
+const YARD_KEY = '@gardengenius_yard';
 const MIN_DISTANCE_METERS = 2;
 const MIN_POINTS = 3;
 

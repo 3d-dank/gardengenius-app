@@ -15,31 +15,15 @@ import {
 } from '../lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HISTORY_KEY = '@lawngenius_history';
-const YARD_KEY = '@lawngenius_yard';
+const HISTORY_KEY = '@gardengenius_history';
+const GARDEN_KEY = '@gardengenius_garden';
 
-interface YardPlot { id: string; name: string; sqft: number; acres: string; coords: any[]; mappedAt: string; }
-interface SavedYard {
-  plots?: YardPlot[];
-  totalSqft?: number;
-  totalAcres?: string;
-  lastUpdated?: string;
-  sqft?: number;
-  acres?: string;
-  coords?: any[];
-  mappedAt?: string;
-}
-
-function parseYardSummary(yard: SavedYard): { totalSqft: number; plotCount: number } {
-  if (yard.plots) return { totalSqft: yard.totalSqft ?? 0, plotCount: yard.plots.length };
-  return { totalSqft: yard.sqft ?? 0, plotCount: 1 };
-}
-
-interface WeatherData { soilTemp: number; rainfall: number; uvIndex: number; }
 interface HistoryEntry {
   id: string; date: string; imageUri: string; problem: string;
   confidence: number; severity: string; description: string; treatment: string; timing: string;
 }
+
+interface WeatherData { soilTemp: number; rainfall: number; uvIndex: number; }
 
 function calcHealthScore(entries: HistoryEntry[]): number | null {
   if (entries.length === 0) return null;
@@ -128,14 +112,13 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [recentScan, setRecentScan] = useState<HistoryEntry | null>(null);
-  const [savedYard, setSavedYard] = useState<SavedYard | null>(null);
 
   const fetchWeather = async () => {
     try {
       const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=44.97&longitude=-93.27&current=temperature_2m,precipitation,uv_index,soil_temperature_0cm&temperature_unit=fahrenheit');
       const d = await res.json();
       setWeather({ soilTemp: Math.round(d.current.soil_temperature_0cm * 9 / 5 + 32), rainfall: d.current.precipitation, uvIndex: d.current.uv_index });
-    } catch { setWeather({ soilTemp: 52, rainfall: 0.1, uvIndex: 4 }); }
+    } catch { setWeather({ soilTemp: 62, rainfall: 0.1, uvIndex: 4 }); }
   };
 
   const loadHistory = async () => {
@@ -147,22 +130,12 @@ export default function HomeScreen({ navigation }: any) {
     } catch { /* silent */ }
   };
 
-  const loadYard = async () => {
-    try {
-      const raw = await AsyncStorage.getItem(YARD_KEY);
-      setSavedYard(raw ? JSON.parse(raw) : null);
-    } catch { /* silent */ }
-  };
-
   const loadAll = async () => {
-    await Promise.all([fetchWeather(), loadHistory(), loadYard()]);
+    await Promise.all([fetchWeather(), loadHistory()]);
   };
 
   useEffect(() => { loadAll(); }, []);
-
-  useFocusEffect(
-    useCallback(() => { loadHistory(); loadYard(); }, [])
-  );
+  useFocusEffect(useCallback(() => { loadHistory(); }, []));
 
   const onRefresh = async () => { setRefreshing(true); await loadAll(); setRefreshing(false); };
 
@@ -177,7 +150,6 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {/* Background gradient */}
       <LinearGradient colors={GRADIENTS.background} style={StyleSheet.absoluteFillObject} />
 
       <SafeAreaView style={{ flex: 1 }}>
@@ -196,8 +168,8 @@ export default function HomeScreen({ navigation }: any) {
                 resizeMode="contain"
               />
               <View style={styles.headerTextWrap}>
-                <Text style={styles.headerTitle}>LawnGenius</Text>
-                <Text style={styles.headerTagline}>Your lawn. Perfected.</Text>
+                <Text style={styles.headerTitle}>GardenGenius</Text>
+                <Text style={styles.headerTagline}>Your garden. Perfected.</Text>
               </View>
               <View style={styles.headerBadge}>
                 <Text style={styles.headerBadgeText}>PRO</Text>
@@ -209,13 +181,12 @@ export default function HomeScreen({ navigation }: any) {
           {/* ── Hero Health Score ────────────────────────────────────────── */}
           <AnimatedCard delay={0} style={styles.scoreCardWrap}>
             <View style={[GLASS.card, styles.scoreCard]}>
-              {/* Glow effect behind circle */}
               <View style={[styles.scoreGlow, { backgroundColor: scoreColor + '25' }]} />
 
               <View style={styles.scoreCircleWrap}>
                 <PulsingRing color={scoreColor} />
                 <LinearGradient
-                  colors={['rgba(13,59,46,0.9)', 'rgba(7,31,24,0.95)']}
+                  colors={['rgba(26,61,15,0.9)', 'rgba(15,32,8,0.95)']}
                   style={[styles.scoreCircle, { borderColor: scoreColor }]}
                 >
                   {score !== null ? (
@@ -227,12 +198,11 @@ export default function HomeScreen({ navigation }: any) {
                 </LinearGradient>
               </View>
 
-              <Text style={styles.scoreTitle}>Lawn Health Score</Text>
+              <Text style={styles.scoreTitle}>Garden Health Score</Text>
               <Text style={styles.scoreHint}>
-                {score === null ? 'Scan your lawn to unlock your score' : 'Based on last 5 scans · Pull to refresh'}
+                {score === null ? 'Scan a plant to unlock your score' : 'Based on last 5 scans · Pull to refresh'}
               </Text>
 
-              {/* Health bar */}
               {score !== null && (
                 <View style={styles.healthBarWrap}>
                   <LinearGradient
@@ -246,11 +216,29 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </AnimatedCard>
 
+          {/* ── AI Companion Card ─────────────────────────────────────────── */}
+          <AnimatedCard delay={80} style={styles.cardWrap}>
+            <LinearGradient
+              colors={['rgba(160,82,45,0.15)', 'rgba(26,61,15,0.9)']}
+              style={[GLASS.card, styles.aiCompanionCard]}
+            >
+              <Text style={styles.aiCompanionIcon}>🌱</Text>
+              <View style={styles.aiCompanionText}>
+                <Text style={styles.aiCompanionTitle}>Garden Tip</Text>
+                <Text style={styles.aiCompanionBody}>
+                  {weather && weather.soilTemp >= 55
+                    ? `Soil temp is ${weather.soilTemp}°F — great time to direct sow warm-season crops!`
+                    : `Soil temp is ${weather ? weather.soilTemp + '°F' : 'cool'} — focus on cold-tolerant crops like lettuce & spinach.`}
+                </Text>
+              </View>
+            </LinearGradient>
+          </AnimatedCard>
+
           {/* ── "What Needs Attention" dynamic card ──────────────────────── */}
           {recentScan && recentScan.severity !== 'None' && (
             <AnimatedCard delay={100} style={styles.cardWrap}>
               <LinearGradient
-                colors={['rgba(220,38,38,0.15)', 'rgba(13,59,46,0.9)']}
+                colors={['rgba(220,38,38,0.15)', 'rgba(26,61,15,0.9)']}
                 style={[GLASS.card, styles.attentionCard]}
               >
                 <View style={styles.attentionHeader}>
@@ -278,7 +266,7 @@ export default function HomeScreen({ navigation }: any) {
                 { icon: '🌡️', value: weather ? `${weather.soilTemp}°F` : '—', label: 'Soil Temp' },
                 { icon: '💧', value: weather ? `${weather.rainfall}"` : '—', label: 'Rainfall' },
                 { icon: '☀️', value: weather ? `${weather.uvIndex}` : '—', label: 'UV Index' },
-                { icon: '🌱', value: '12 days', label: 'Next Fert.' },
+                { icon: '🌿', value: '7 days', label: 'Next Water' },
               ].map((m, i) => (
                 <View key={i} style={[GLASS.metric, styles.metricCard]}>
                   <Text style={styles.metricIcon}>{m.icon}</Text>
@@ -289,13 +277,43 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </AnimatedCard>
 
+          {/* ── Quick Actions ─────────────────────────────────────────────── */}
+          <AnimatedCard delay={180} style={styles.cardWrap}>
+            <View style={[GLASS.card, styles.quickActionsCard]}>
+              <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+              <View style={styles.quickActionsGrid}>
+                {[
+                  { icon: '📷', label: 'Scan Plant', screen: 'Scan' },
+                  { icon: '🌿', label: 'My Garden', screen: 'Profile' },
+                  { icon: '📅', label: 'Planting Calendar', screen: 'Calendar' },
+                  { icon: '🎓', label: 'Garden Academy', screen: 'Academy' },
+                ].map((action) => (
+                  <TouchableOpacity
+                    key={action.label}
+                    style={styles.quickActionBtn}
+                    onPress={async () => {
+                      await Haptics.selectionAsync();
+                      navigation.navigate(action.screen);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.quickActionIcon}>
+                      <Text style={styles.quickActionEmoji}>{action.icon}</Text>
+                    </View>
+                    <Text style={styles.quickActionLabel}>{action.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </AnimatedCard>
+
           {/* ── Scan CTA ─────────────────────────────────────────────────── */}
           <AnimatedCard delay={200} style={styles.cardWrap}>
             <TouchableOpacity onPress={handleScanPress} activeOpacity={0.85} style={NEO.buttonPrimary}>
               <LinearGradient colors={GRADIENTS.limeVibrant} style={styles.scanBtn}>
                 <Text style={styles.scanBtnIcon}>📷</Text>
                 <View style={styles.scanBtnText}>
-                  <Text style={styles.scanBtnTitle}>Scan Your Lawn</Text>
+                  <Text style={styles.scanBtnTitle}>Scan Your Plant</Text>
                   <Text style={styles.scanBtnSub}>AI diagnosis in seconds</Text>
                 </View>
                 <View style={styles.scanBtnArrow}>
@@ -304,25 +322,6 @@ export default function HomeScreen({ navigation }: any) {
               </LinearGradient>
             </TouchableOpacity>
           </AnimatedCard>
-
-          {/* ── Yard Size Card ────────────────────────────────────────────── */}
-          {savedYard && (() => {
-            const { totalSqft, plotCount } = parseYardSummary(savedYard);
-            return (
-              <AnimatedCard delay={250} style={styles.cardWrap}>
-                <View style={[GLASS.card, styles.yardCard]}>
-                  <Text style={styles.yardIcon}>📐</Text>
-                  <View style={styles.yardInfo}>
-                    <Text style={styles.yardLabel}>Your Property</Text>
-                    <Text style={styles.yardValue}>
-                      {plotCount > 1 ? `${plotCount} plots · ` : ''}{totalSqft.toLocaleString()} sq ft
-                    </Text>
-                    <Text style={styles.yardSub}>All recommendations sized for your yard</Text>
-                  </View>
-                </View>
-              </AnimatedCard>
-            );
-          })()}
 
           {/* ── Recent Diagnosis ──────────────────────────────────────────── */}
           {recentScan && (
@@ -343,18 +342,18 @@ export default function HomeScreen({ navigation }: any) {
             </AnimatedCard>
           )}
 
-          {/* ── Tip Card ─────────────────────────────────────────────────── */}
+          {/* ── Garden Tip Card ─────────────────────────────────────────── */}
           <AnimatedCard delay={350} style={styles.cardWrap}>
             <View style={[GLASS.card, styles.tipCard]}>
               <LinearGradient
-                colors={['rgba(212,175,55,0.15)', 'rgba(13,59,46,0.0)']}
+                colors={['rgba(255,160,0,0.15)', 'rgba(26,61,15,0.0)']}
                 style={styles.tipGradient}
               >
-                <Text style={styles.tipIcon}>💡</Text>
+                <Text style={styles.tipIcon}>🌻</Text>
                 <View style={styles.tipContent}>
-                  <Text style={styles.tipTitle}>This Week's Tip</Text>
+                  <Text style={styles.tipTitle}>This Week's Garden Tip</Text>
                   <Text style={styles.tipText}>
-                    Soil temperatures below 50°F slow fertilizer uptake. Wait until temps consistently reach 55°F before your first application of the season.
+                    Deep, infrequent watering (1–2" per week) encourages deeper roots. Morning watering reduces fungal disease risk — avoid wetting foliage in the evening.
                   </Text>
                 </View>
               </LinearGradient>
@@ -398,7 +397,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerBadge: {
-    backgroundColor: COLORS.premiumGold,
+    backgroundColor: COLORS.harvestGold,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.pill,
@@ -487,8 +486,21 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  // Attention card
+  // AI Companion
   cardWrap: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
+  aiCompanionCard: {
+    flexDirection: 'row',
+    padding: SPACING.md,
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    overflow: 'hidden',
+  },
+  aiCompanionIcon: { fontSize: 28, marginTop: 2 },
+  aiCompanionText: { flex: 1 },
+  aiCompanionTitle: { fontSize: 11, fontWeight: '700', color: COLORS.limeAccent, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+  aiCompanionBody: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
+
+  // Attention card
   attentionCard: {
     padding: SPACING.md,
     overflow: 'hidden',
@@ -526,6 +538,21 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
   metricLabel: { fontSize: 10, color: COLORS.textMuted, marginTop: 3, textAlign: 'center', letterSpacing: 0.3 },
 
+  // Quick Actions
+  quickActionsCard: { padding: SPACING.md },
+  quickActionsTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: SPACING.md },
+  quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  quickActionBtn: { flex: 1, minWidth: (SCREEN_WIDTH - SPACING.md * 4 - SPACING.sm * 3) / 2, alignItems: 'center', paddingVertical: SPACING.sm },
+  quickActionIcon: {
+    width: 52, height: 52, borderRadius: 16,
+    backgroundColor: 'rgba(139,195,74,0.12)',
+    borderWidth: 1, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6,
+  },
+  quickActionEmoji: { fontSize: 24 },
+  quickActionLabel: { fontSize: 11, fontWeight: '600', color: COLORS.textSecondary, textAlign: 'center' },
+
   // Scan button
   scanBtn: {
     flexDirection: 'row',
@@ -545,19 +572,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   scanBtnArrowText: { fontSize: 22, color: COLORS.surface0, fontWeight: '700', lineHeight: 28 },
-
-  // Yard card
-  yardCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  yardIcon: { fontSize: 28 },
-  yardInfo: { flex: 1 },
-  yardLabel: { fontSize: 11, color: COLORS.textMuted, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '600' },
-  yardValue: { fontSize: 17, fontWeight: '800', color: COLORS.limeAccent, marginTop: 2 },
-  yardSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
 
   // Recent card
   recentCard: { padding: SPACING.md },
@@ -585,6 +599,6 @@ const styles = StyleSheet.create({
   },
   tipIcon: { fontSize: 26, marginTop: 2 },
   tipContent: { flex: 1 },
-  tipTitle: { fontSize: 14, fontWeight: '700', color: COLORS.premiumGold, marginBottom: 6, letterSpacing: 0.3 },
+  tipTitle: { fontSize: 14, fontWeight: '700', color: COLORS.harvestGold, marginBottom: 6, letterSpacing: 0.3 },
   tipText: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
 });

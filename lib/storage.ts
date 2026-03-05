@@ -1,5 +1,5 @@
 /**
- * LawnGenius - Supabase Storage helpers
+ * GardenGenius - Supabase Storage helpers
  *
  * SETUP REQUIRED:
  * Before using this module, create the "scan-photos" bucket in Supabase:
@@ -41,7 +41,7 @@ export async function uploadScanPhoto(
       });
 
     if (error) {
-      console.warn('[LawnGenius] Storage upload error:', error.message);
+      console.warn('[GardenGenius] Storage upload error:', error.message);
       return null;
     }
 
@@ -52,7 +52,7 @@ export async function uploadScanPhoto(
 
     return data.publicUrl ?? null;
   } catch (err) {
-    console.warn('[LawnGenius] Failed to upload scan photo:', err);
+    console.warn('[GardenGenius] Failed to upload scan photo:', err);
     return null;
   }
 }

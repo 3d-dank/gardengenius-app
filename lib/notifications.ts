@@ -2,8 +2,8 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const NOTIF_PERM_KEY = '@lawngenius_notif_permission';
-const LAST_SCAN_KEY = '@lawngenius_last_scan_notif';
+const NOTIF_PERM_KEY = '@gardengenius_notif_permission';
+const LAST_SCAN_KEY = '@gardengenius_last_scan_notif';
 
 // How notifications behave when app is in foreground
 Notifications.setNotificationHandler({
@@ -49,8 +49,8 @@ export async function scheduleWeeklyReport(): Promise<void> {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '🌿 Your Weekly Lawn Report',
-      body: 'Check your lawn health score and this week\'s care tips',
+      title: '🌿 Your Weekly Garden Report',
+      body: 'Check your garden health score and this week\'s care tips',
       data: { screen: 'Home', tag: 'weekly_report' },
       sound: true,
     },
@@ -117,7 +117,7 @@ export async function scheduleSeasonalReminder(): Promise<void> {
         if (nextDate > now) {
           await Notifications.scheduleNotificationAsync({
             content: {
-              title: '🌿 LawnGenius Seasonal Tip',
+              title: '🌿 GardenGenius Seasonal Tip',
               body: SEASONAL_MESSAGES[nextM],
               data: { screen: 'Home', tag: 'seasonal_reminder' },
               sound: true,
@@ -136,7 +136,7 @@ export async function scheduleSeasonalReminder(): Promise<void> {
   } else {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🌿 LawnGenius Seasonal Tip',
+        title: '🌿 GardenGenius Seasonal Tip',
         body: message,
         data: { screen: 'Home', tag: 'seasonal_reminder' },
         sound: true,
@@ -177,7 +177,7 @@ export async function scheduleScanReminder(): Promise<void> {
 export async function sendTestNotification(): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '🌿 LawnGenius Notification Test',
+      title: '🌿 GardenGenius Notification Test',
       body: 'Notifications are working! You\'ll receive lawn tips and reminders here.',
       data: { screen: 'Home', tag: 'test' },
       sound: true,
@@ -207,9 +207,9 @@ export async function setupAllNotifications(): Promise<void> {
   if (!granted) return;
 
   const [weekly, seasonal, scan] = await Promise.all([
-    AsyncStorage.getItem('@lawngenius_notif_weekly'),
-    AsyncStorage.getItem('@lawngenius_notif_seasonal'),
-    AsyncStorage.getItem('@lawngenius_notif_scan'),
+    AsyncStorage.getItem('@gardengenius_notif_weekly'),
+    AsyncStorage.getItem('@gardengenius_notif_seasonal'),
+    AsyncStorage.getItem('@gardengenius_notif_scan'),
   ]);
 
   // Default to enabled if not explicitly set to 'false'

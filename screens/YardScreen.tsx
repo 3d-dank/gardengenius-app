@@ -22,7 +22,7 @@ const ZONES: Record<string, { zone: string; grass: string; soil: string }> = {
   '5': { zone: '7b-9b', grass: 'Bermuda, St. Augustine, Centipede', soil: 'Sandy soils common. Frequent irrigation needed.' },
 };
 
-const YARD_KEY = '@lawngenius_yard';
+const YARD_KEY = '@gardengenius_yard';
 
 const PLOT_COLORS = ['#4CAF50', '#3B82F6', '#F97316', '#A855F7', '#EF4444', '#06B6D4'];
 const PLOT_FILL_COLORS = [

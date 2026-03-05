@@ -17,10 +17,10 @@ import {
   COLORS, GRADIENTS, GLASS, NEO, RADIUS, SPACING,
 } from '../lib/theme';
 
-const HISTORY_KEY = '@lawngenius_history';
-const NOTIF_WEEKLY_KEY = '@lawngenius_notif_weekly';
-const NOTIF_SEASONAL_KEY = '@lawngenius_notif_seasonal';
-const NOTIF_SCAN_KEY = '@lawngenius_notif_scan';
+const HISTORY_KEY = '@gardengenius_history';
+const NOTIF_WEEKLY_KEY = '@gardengenius_notif_weekly';
+const NOTIF_SEASONAL_KEY = '@gardengenius_notif_seasonal';
+const NOTIF_SCAN_KEY = '@gardengenius_notif_scan';
 
 interface HistoryEntry { id: string; date: string; }
 
@@ -58,12 +58,10 @@ export default function ProfileScreen() {
     } catch { /* silent */ }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadStats();
-      loadNotifPrefs();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    loadStats();
+    loadNotifPrefs();
+  }, []));
 
   const freeScansUsed = Math.min(totalScans, 3);
 
@@ -108,7 +106,7 @@ export default function ProfileScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const granted = await requestPermissions();
     if (!granted) {
-      Alert.alert('Notifications Disabled', 'Please enable notifications in your device Settings to receive lawn reminders.');
+      Alert.alert('Notifications Disabled', 'Please enable notifications in your device Settings to receive garden reminders.');
       return;
     }
     await sendTestNotification();
@@ -127,8 +125,8 @@ export default function ProfileScreen() {
                 <Text style={styles.avatarEmoji}>🌿</Text>
               </View>
               <View style={styles.headerInfo}>
-                <Text style={styles.headerName}>My Profile</Text>
-                <Text style={styles.headerSub}>Lawn settings & preferences</Text>
+                <Text style={styles.headerName}>My Garden Profile</Text>
+                <Text style={styles.headerSub}>Garden settings & preferences</Text>
               </View>
             </View>
           </LinearGradient>
@@ -155,7 +153,7 @@ export default function ProfileScreen() {
           {/* ── Plan Card ─────────────────────────────────────────────── */}
           <View style={styles.sectionWrap}>
             <LinearGradient
-              colors={['rgba(212,175,55,0.2)', 'rgba(13,59,46,0.9)']}
+              colors={['rgba(160,82,45,0.2)', 'rgba(26,61,15,0.9)']}
               style={[GLASS.card, styles.planCard]}
             >
               <View style={styles.planBadgeRow}>
@@ -164,8 +162,6 @@ export default function ProfileScreen() {
                 </View>
                 <Text style={styles.scanUsed}>{freeScansUsed} of 3 free scans this month</Text>
               </View>
-
-              {/* Usage bar */}
               <View style={styles.usageBarTrack}>
                 <LinearGradient
                   colors={GRADIENTS.gold}
@@ -173,25 +169,26 @@ export default function ProfileScreen() {
                   style={[styles.usageBarFill, { width: `${(freeScansUsed / 3) * 100}%` as any }]}
                 />
               </View>
-
               <TouchableOpacity style={[NEO.buttonPrimary, { marginTop: SPACING.md }]} activeOpacity={0.88}>
                 <LinearGradient colors={GRADIENTS.gold} style={styles.upgradeBtn}>
                   <Text style={styles.upgradeBtnText}>⚡ Upgrade to Pro — $4.99/mo</Text>
                 </LinearGradient>
               </TouchableOpacity>
-              <Text style={styles.proFeatures}>Unlimited scans · History · Yard mapping · Priority AI</Text>
+              <Text style={styles.proFeatures}>Unlimited scans · History · Planting calendar · Priority AI</Text>
             </LinearGradient>
           </View>
 
-          {/* ── Settings Rows ──────────────────────────────────────────── */}
+          {/* ── Garden Settings ────────────────────────────────────────── */}
           <View style={styles.sectionWrap}>
-            <Text style={styles.sectionHeader}>Settings</Text>
+            <Text style={styles.sectionHeader}>My Garden</Text>
             <View style={[GLASS.card, styles.settingsCard]}>
               {[
-                { icon: '📧', label: 'Email', value: 'Set up account' },
-                { icon: '🏠', label: 'Address', value: 'Add your address' },
-                { icon: '📐', label: 'Yard Size', value: 'Not set' },
-                { icon: '🌱', label: 'Grass Type', value: 'Not set' },
+                { icon: '🌱', label: 'Garden Type', value: 'Vegetable, Flower, Herb, Mixed' },
+                { icon: '📍', label: 'Location / Zip', value: 'For frost dates & planting calendar' },
+                { icon: '📐', label: 'Garden Size (sq ft)', value: 'Not set' },
+                { icon: '🪨', label: 'Soil Type', value: 'Clay, Loam, Sandy, Raised Bed' },
+                { icon: '☀️', label: 'Sun Exposure', value: 'Full Sun, Partial Shade, Full Shade' },
+                { icon: '💧', label: 'Watering Method', value: 'Manual, Drip, Sprinkler' },
               ].map((item, i) => (
                 <TouchableOpacity
                   key={i}
@@ -218,13 +215,13 @@ export default function ProfileScreen() {
             <View style={[GLASS.card, styles.settingsCard]}>
               {[
                 {
-                  label: 'Weekly Lawn Report',
+                  label: 'Weekly Garden Report',
                   sub: 'Every Sunday at 8am',
                   value: weeklyEnabled,
                   onChange: handleWeeklyToggle,
                 },
                 {
-                  label: 'Seasonal Tips',
+                  label: 'Seasonal Planting Tips',
                   sub: 'Monthly care reminders',
                   value: seasonalEnabled,
                   onChange: handleSeasonalToggle,
@@ -262,7 +259,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <Text style={styles.version}>LawnGenius v1.0 · Made with 🌿 by Top Dog AI</Text>
+          <Text style={styles.version}>GardenGenius v1.0 · Made with 🌿 by Top Dog AI</Text>
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
@@ -272,26 +269,19 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface0 },
-
-  // Header
   header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.lg },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(126,200,69,0.15)',
-    borderWidth: 2,
-    borderColor: COLORS.borderBright,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: 'rgba(139,195,74,0.15)',
+    borderWidth: 2, borderColor: COLORS.borderBright,
+    alignItems: 'center', justifyContent: 'center',
   },
   avatarEmoji: { fontSize: 30 },
   headerInfo: { flex: 1 },
   headerName: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
   headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 3 },
 
-  // Stats
   statsWrap: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
   statsCard: { flexDirection: 'row', padding: SPACING.md },
   statItem: { flex: 1, alignItems: 'center' },
@@ -299,63 +289,33 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, color: COLORS.textMuted, marginTop: 4, letterSpacing: 0.5, textTransform: 'uppercase', textAlign: 'center' },
   statDivider: { width: 1, backgroundColor: COLORS.border },
 
-  // Plan card
   sectionWrap: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
   planCard: { padding: SPACING.md, overflow: 'hidden' },
   planBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
   freeBadge: {
-    backgroundColor: 'rgba(212,175,55,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.4)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: RADIUS.pill,
+    backgroundColor: 'rgba(160,82,45,0.2)',
+    borderWidth: 1, borderColor: 'rgba(160,82,45,0.4)',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill,
   },
-  freeBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.premiumGold, letterSpacing: 1 },
+  freeBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.harvestGold, letterSpacing: 1 },
   scanUsed: { fontSize: 13, color: COLORS.textSecondary, flex: 1 },
-  usageBarTrack: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: SPACING.sm,
-  },
+  usageBarTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden', marginTop: SPACING.sm },
   usageBarFill: { height: 4, borderRadius: 2 },
-  upgradeBtn: {
-    padding: SPACING.md,
-    borderRadius: RADIUS.pill,
-    alignItems: 'center',
-  },
+  upgradeBtn: { padding: SPACING.md, borderRadius: RADIUS.pill, alignItems: 'center' },
   upgradeBtnText: { color: COLORS.surface0, fontWeight: '800', fontSize: 15 },
   proFeatures: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: SPACING.sm, lineHeight: 16 },
 
-  // Section header
   sectionHeader: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginBottom: SPACING.sm,
-    marginLeft: 4,
+    fontSize: 12, fontWeight: '700', color: COLORS.textMuted,
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: SPACING.sm, marginLeft: 4,
   },
-
-  // Settings
   settingsCard: { padding: 0, overflow: 'hidden' },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-  },
+  settingsRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md },
   settingsRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
   settingsIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(126,200,69,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.sm,
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(139,195,74,0.1)',
+    alignItems: 'center', justifyContent: 'center', marginRight: SPACING.sm,
   },
   settingsIcon: { fontSize: 18 },
   settingsContent: { flex: 1 },
@@ -363,28 +323,19 @@ const styles = StyleSheet.create({
   settingsValue: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   settingsArrow: { fontSize: 22, color: COLORS.textMuted },
 
-  // Toggles
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md },
   toggleInfo: { flex: 1 },
   toggleLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   toggleSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
 
-  // Test button
   testBtn: {
-    backgroundColor: 'rgba(126,200,69,0.1)',
+    backgroundColor: 'rgba(139,195,74,0.1)',
     borderRadius: RADIUS.md,
     padding: SPACING.sm,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1, borderColor: COLORS.border,
   },
   testBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.limeAccent },
 
-  // Version
   version: { textAlign: 'center', color: COLORS.textMuted, fontSize: 12, padding: SPACING.lg },
 });
