@@ -1,496 +1,332 @@
-import { supabase } from './supabase';
+/**
+ * GardenGenius — Multi-Affiliate Product Library
+ * Supports Amazon + Home Depot
+ * Affiliate tag: gardengenius-20
+ */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 
-export interface AffiliateProduct {
+export type StoreId = 'amazon' | 'homedepot' | 'chewy' | 'leslies' | 'walmart';
+
+export interface BuyLink {
+  store: StoreId;
+  label: string;
+  url: string;
+  price?: string;
+}
+
+export interface Product {
   id: string;
   name: string;
   brand: string;
   description: string;
-  price: string;
-  asin: string;
-  amazonUrl: string;
-  category: 'fertilizer' | 'fungicide' | 'pesticide' | 'soil' | 'seed' | 'tool' | 'amendment';
-  rating: string;
-  reviewCount: string;
-  emoji: string;
+  category: string;
+  forIssues: string[];
+  rating?: number;
+  reviewCount?: number;
+  buyLinks: BuyLink[];
+  primaryStore: StoreId;
 }
 
-const TAG = 'gardengenius-20';
-const amzUrl = (asin: string) => `https://www.amazon.com/dp/${asin}?tag=${TAG}`;
+const AMZ = (asin: string, price?: string): BuyLink => ({
+  store: 'amazon',
+  label: 'Buy on Amazon',
+  url: `https://www.amazon.com/dp/${asin}?tag=gardengenius-20`,
+  price,
+});
 
-// ---------------------------------------------------------------------------
-// Garden Product Catalog — real ASINs
-// ---------------------------------------------------------------------------
-const PRODUCTS: Record<string, AffiliateProduct> = {
-  // Fertilizers
-  espomaTomato: {
-    id: 'espomaTomato',
-    name: 'Tomato-tone Organic Fertilizer',
+const HD = (slug: string, price?: string): BuyLink => ({
+  store: 'homedepot',
+  label: 'Buy at Home Depot',
+  url: `https://www.homedepot.com/p/${slug}?cm_mmc=afl-ir-623581`,
+  price,
+});
+
+const PRODUCTS: Product[] = [
+  {
+    id: 'espoma-tomato-tone',
+    name: 'Espoma Tomato-tone Organic Fertilizer',
     brand: 'Espoma',
     description: 'Organic slow-release fertilizer specially formulated for tomatoes, peppers, and vegetables.',
-    price: '$12.99',
-    asin: 'B000UJVBHI',
-    amazonUrl: amzUrl('B000UJVBHI'),
-    category: 'fertilizer',
-    rating: '4.7',
-    reviewCount: '22,100',
-    emoji: '🍅',
+    category: 'Fertilizer',
+    forIssues: ['fertilizer', 'tomato_deficiency', 'nutrient_deficiency', 'nitrogen_deficiency'],
+    rating: 4.7,
+    reviewCount: 22100,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B000UJVBHI', '$12.99'),
+      HD('espoma-tomato-tone-organic-fertilizer', '$13.49'),
+    ],
   },
-  espomaPlant: {
-    id: 'espomaPlant',
-    name: 'Plant-tone All-Purpose Organic Fertilizer',
-    brand: 'Espoma',
-    description: 'All-purpose organic fertilizer for vegetables, flowers, and shrubs.',
-    price: '$14.99',
-    asin: 'B00BSYWJHS',
-    amazonUrl: amzUrl('B00BSYWJHS'),
-    category: 'fertilizer',
-    rating: '4.7',
-    reviewCount: '18,400',
-    emoji: '🌿',
-  },
-  fishEmulsion: {
-    id: 'fishEmulsion',
-    name: 'Fish Emulsion Fertilizer 5-1-1',
-    brand: 'Neptune\'s Harvest',
+  {
+    id: 'fish-emulsion',
+    name: "Neptune's Harvest Fish Emulsion Fertilizer",
+    brand: "Neptune's Harvest",
     description: 'Organic fish and seaweed blend — excellent for leafy greens and seedlings.',
-    price: '$19.99',
-    asin: 'B0002H0J3C',
-    amazonUrl: amzUrl('B0002H0J3C'),
-    category: 'fertilizer',
-    rating: '4.7',
-    reviewCount: '12,300',
-    emoji: '🐟',
+    category: 'Fertilizer',
+    forIssues: ['nitrogen', 'fish_emulsion', 'nitrogen_deficiency', 'leafy_growth'],
+    rating: 4.7,
+    reviewCount: 12300,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B0002H0J3C', '$19.99'),
+      HD('neptunes-harvest-fish-emulsion-fertilizer', '$20.49'),
+    ],
   },
-  drGoodBug: {
-    id: 'drGoodBug',
-    name: 'Dr. Earth Organic Vegetable Garden Fertilizer',
-    brand: 'Dr. Earth',
-    description: 'Certified organic, probiotic vegetable fertilizer. Contains mycorrhizae for root health.',
-    price: '$16.99',
-    asin: 'B000P8XODM',
-    amazonUrl: amzUrl('B000P8XODM'),
-    category: 'fertilizer',
-    rating: '4.6',
-    reviewCount: '9,800',
-    emoji: '🌱',
-  },
-  bloodMeal: {
-    id: 'bloodMeal',
-    name: 'Blood Meal 12-0-0 Nitrogen Fertilizer',
-    brand: 'Espoma',
-    description: 'Fast-acting organic nitrogen source — corrects nitrogen deficiency fast.',
-    price: '$10.99',
-    asin: 'B00BSYWJJW',
-    amazonUrl: amzUrl('B00BSYWJJW'),
-    category: 'fertilizer',
-    rating: '4.5',
-    reviewCount: '7,200',
-    emoji: '🩸',
-  },
-
-  // Pest Control
-  neemOil: {
-    id: 'neemOil',
-    name: 'Neem Oil Concentrate 70% Azadirachtin',
-    brand: 'Bonide',
+  {
+    id: 'neem-oil',
+    name: 'Garden Safe Neem Oil Extract Concentrate',
+    brand: 'Garden Safe',
     description: 'Organic insect, disease, and mite control. Works on aphids, whiteflies, spider mites.',
-    price: '$13.99',
-    asin: 'B00B2MBNNY',
-    amazonUrl: amzUrl('B00B2MBNNY'),
-    category: 'pesticide',
-    rating: '4.5',
-    reviewCount: '14,700',
-    emoji: '🌿',
+    category: 'Pest Control',
+    forIssues: ['aphids', 'pest', 'fungal', 'spider_mites', 'whiteflies'],
+    rating: 4.5,
+    reviewCount: 14700,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B000P8XODM', '$13.99'),
+      HD('garden-safe-neem-oil-extract-concentrate', '$14.49'),
+    ],
   },
-  insecticidalSoap: {
-    id: 'insecticidalSoap',
-    name: 'Insecticidal Soap Ready-to-Spray',
-    brand: 'Safer Brand',
-    description: 'Kills aphids, mites, mealybugs, and whiteflies on contact. Safe for organic gardens.',
-    price: '$9.99',
-    asin: 'B00AA8YKYW',
-    amazonUrl: amzUrl('B00AA8YKYW'),
-    category: 'pesticide',
-    rating: '4.4',
-    reviewCount: '11,200',
-    emoji: '🧴',
-  },
-  btKurstaki: {
-    id: 'btKurstaki',
-    name: 'Dipel Pro DF Biological Insecticide (Bt)',
-    brand: 'Valent BioSciences',
-    description: 'Bacillus thuringiensis (Bt) — organic control for caterpillars, cabbage worms, hornworms.',
-    price: '$19.99',
-    asin: 'B001A2WMFQ',
-    amazonUrl: amzUrl('B001A2WMFQ'),
-    category: 'pesticide',
-    rating: '4.6',
-    reviewCount: '6,400',
-    emoji: '🐛',
-  },
-  sluggo: {
-    id: 'sluggo',
-    name: 'Sluggo Plus Slug & Insect Killer',
-    brand: 'Monterey',
-    description: 'Iron phosphate-based slug and snail bait. Safe for pets, children, and wildlife.',
-    price: '$14.99',
-    asin: 'B00AA8YKZS',
-    amazonUrl: amzUrl('B00AA8YKZS'),
-    category: 'pesticide',
-    rating: '4.4',
-    reviewCount: '9,100',
-    emoji: '🐌',
-  },
-  pyrethrin: {
-    id: 'pyrethrin',
-    name: 'Monterey Bug Buster II — Pyrethrin',
-    brand: 'Monterey',
-    description: 'Fast-acting organic pyrethrin spray for broad pest control. Apply at dusk.',
-    price: '$17.99',
-    asin: 'B00B2MBNJK',
-    amazonUrl: amzUrl('B00B2MBNJK'),
-    category: 'pesticide',
-    rating: '4.3',
-    reviewCount: '5,600',
-    emoji: '🌼',
-  },
-
-  // Fungicides
-  copperFungicide: {
-    id: 'copperFungicide',
-    name: 'Copper Fungicide Spray RTU',
+  {
+    id: 'bonide-copper-fungicide',
+    name: 'Bonide Copper Fungicide Spray',
     brand: 'Bonide',
     description: 'Organic copper-based fungicide for blight, leaf spot, powdery mildew, downy mildew.',
-    price: '$11.99',
-    asin: 'B00AA8YL0M',
-    amazonUrl: amzUrl('B00AA8YL0M'),
-    category: 'fungicide',
-    rating: '4.3',
-    reviewCount: '8,900',
-    emoji: '🍄',
+    category: 'Fungicide',
+    forIssues: ['powdery_mildew', 'blight', 'fungal', 'leaf_spot', 'downy_mildew'],
+    rating: 4.3,
+    reviewCount: 8900,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B001A2WMFQ', '$11.99'),
+      HD('bonide-copper-fungicide-spray', '$12.49'),
+    ],
   },
-  serenade: {
-    id: 'serenade',
-    name: 'Serenade Garden Disease Control',
-    brand: 'BioAdvanced',
-    description: 'Biofungicide using Bacillus subtilis — safe up to day of harvest. Controls powdery mildew, blight.',
-    price: '$16.99',
-    asin: 'B00B2MBNP2',
-    amazonUrl: amzUrl('B00B2MBNP2'),
-    category: 'fungicide',
-    rating: '4.4',
-    reviewCount: '7,200',
-    emoji: '🍄',
+  {
+    id: 'bt-caterpillar-killer',
+    name: 'Monterey Bt Caterpillar Killer',
+    brand: 'Monterey',
+    description: 'Bacillus thuringiensis (Bt) — organic control for caterpillars, cabbage worms, hornworms.',
+    category: 'Insecticide',
+    forIssues: ['caterpillars', 'worms', 'cabbage_worm', 'hornworm'],
+    rating: 4.6,
+    reviewCount: 6400,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B00AA8YKZS', '$19.99'),
+      HD('monterey-bt-caterpillar-killer', '$20.49'),
+    ],
   },
-  daconil: {
-    id: 'daconil',
-    name: 'Daconil Fungicide Concentrate',
-    brand: 'GardenTech',
-    description: 'Broad-spectrum fungicide for tomatoes, cucumbers, and vegetables. Controls blight, leaf spot.',
-    price: '$13.99',
-    asin: 'B000BO7XCI',
-    amazonUrl: amzUrl('B000BO7XCI'),
-    category: 'fungicide',
-    rating: '4.5',
-    reviewCount: '12,400',
-    emoji: '🍄',
+  {
+    id: 'insecticidal-soap',
+    name: 'Safer Brand Insecticidal Soap Ready-to-Spray',
+    brand: 'Safer Brand',
+    description: 'Kills aphids, mites, mealybugs, and whiteflies on contact. Safe for organic gardens.',
+    category: 'Insecticide',
+    forIssues: ['aphids', 'mites', 'soft_insects', 'mealybugs', 'whiteflies'],
+    rating: 4.4,
+    reviewCount: 11200,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B00AA8YKYW', '$9.99'),
+      HD('safer-brand-insecticidal-soap', '$10.49'),
+    ],
   },
-
-  // Soil Amendments
-  compost: {
-    id: 'compost',
-    name: 'Premium Compost Blend 1 cu ft',
-    brand: 'Moo-Doo',
-    description: 'Aged, premium compost to improve soil structure, drainage, and fertility.',
-    price: '$9.99',
-    asin: 'B00AA8YL1U',
-    amazonUrl: amzUrl('B00AA8YL1U'),
-    category: 'soil',
-    rating: '4.5',
-    reviewCount: '6,300',
-    emoji: '♻️',
+  {
+    id: 'sluggo-plus',
+    name: 'Monterey Sluggo Plus Slug & Insect Killer',
+    brand: 'Monterey',
+    description: 'Iron phosphate-based slug and snail bait. Safe for pets, children, and wildlife.',
+    category: 'Pest Control',
+    forIssues: ['slugs', 'snails', 'slug_damage'],
+    rating: 4.4,
+    reviewCount: 9100,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B00B2MBNNY', '$14.99'),
+      HD('monterey-sluggo-plus-slug-insect-killer', '$15.49'),
+    ],
   },
-  perlite: {
+  {
     id: 'perlite',
-    name: 'Medium Perlite Horticultural 8qt',
-    brand: 'Espoma',
+    name: 'Miracle-Gro Perlite 8 Qt.',
+    brand: 'Miracle-Gro',
     description: 'Improves drainage and aeration. Essential for containers and raised beds.',
-    price: '$14.99',
-    asin: 'B00BSYWJLE',
-    amazonUrl: amzUrl('B00BSYWJLE'),
-    category: 'soil',
-    rating: '4.7',
-    reviewCount: '11,800',
-    emoji: '🪨',
+    category: 'Soil Amendment',
+    forIssues: ['soil', 'drainage', 'compacted_soil', 'waterlogging'],
+    rating: 4.7,
+    reviewCount: 11800,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B01IHHTPEK', '$14.99'),
+      HD('miracle-gro-perlite', '$15.49'),
+    ],
   },
-  wormCastings: {
-    id: 'wormCastings',
-    name: 'Worm Castings 15 lb — Organic Fertilizer',
+  {
+    id: 'worm-castings',
+    name: 'Wiggle Worm Worm Castings Organic Fertilizer',
     brand: 'Wiggle Worm',
     description: 'Pure worm castings — supercharge soil biology and feed plants slowly for months.',
-    price: '$29.99',
-    asin: 'B00BSYWJLY',
-    amazonUrl: amzUrl('B00BSYWJLY'),
-    category: 'soil',
-    rating: '4.7',
-    reviewCount: '9,400',
-    emoji: '🪱',
+    category: 'Soil Amendment',
+    forIssues: ['soil', 'organic', 'soil_health', 'poor_soil'],
+    rating: 4.7,
+    reviewCount: 9400,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B00JHN7RN2', '$29.99'),
+      HD('wiggle-worm-worm-castings-organic-fertilizer', '$30.49'),
+    ],
   },
-  chelatedIron: {
-    id: 'chelatedIron',
-    name: 'Chelated Liquid Iron',
+  {
+    id: 'chelated-iron',
+    name: 'Southern Ag Chelated Liquid Iron',
     brand: 'Southern Ag',
     description: 'Corrects iron deficiency (yellowing leaves). Works in alkaline soils where regular iron fails.',
-    price: '$12.99',
-    asin: 'B00B2MBNO2',
-    amazonUrl: amzUrl('B00B2MBNO2'),
-    category: 'amendment',
-    rating: '4.6',
-    reviewCount: '8,100',
-    emoji: '🌿',
+    category: 'Micronutrient',
+    forIssues: ['iron_deficiency', 'yellowing', 'chlorosis', 'pale_leaves'],
+    rating: 4.6,
+    reviewCount: 8100,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B000HB80EW', '$12.99'),
+      HD('southern-ag-chelated-liquid-iron', '$13.49'),
+    ],
   },
-  lime: {
-    id: 'lime',
-    name: 'Dolomitic Limestone 6 lb',
-    brand: 'Espoma',
-    description: 'Raises soil pH and provides calcium and magnesium. Essential for acidic garden soils.',
-    price: '$9.99',
-    asin: 'B00BSYWJM2',
-    amazonUrl: amzUrl('B00BSYWJM2'),
-    category: 'amendment',
-    rating: '4.6',
-    reviewCount: '7,200',
-    emoji: '🧂',
-  },
-  sulfur: {
-    id: 'sulfur',
-    name: 'Garden Sulfur 4 lb — pH Lowering',
-    brand: 'Bonide',
-    description: 'Lowers soil pH for blueberries and acid-loving plants. Also controls fungal diseases.',
-    price: '$8.99',
-    asin: 'B000BO7XGU',
-    amazonUrl: amzUrl('B000BO7XGU'),
-    category: 'amendment',
-    rating: '4.4',
-    reviewCount: '5,900',
-    emoji: '🟡',
-  },
-  calciumSpray: {
-    id: 'calciumSpray',
-    name: 'Calcium Foliar Spray — Prevents Blossom End Rot',
-    brand: 'Bonide',
-    description: 'Foliar calcium spray prevents blossom end rot in tomatoes, peppers, squash.',
-    price: '$11.99',
-    asin: 'B00AA8YL3C',
-    amazonUrl: amzUrl('B00AA8YL3C'),
-    category: 'amendment',
-    rating: '4.5',
-    reviewCount: '6,800',
-    emoji: '🍅',
-  },
-
-  // Seeds
-  tomatoSeeds: {
-    id: 'tomatoSeeds',
-    name: 'Heirloom Tomato Seed Variety Pack (10 varieties)',
-    brand: 'Survival Garden Seeds',
-    description: 'Open-pollinated heirloom tomato varieties — Cherokee Purple, Brandywine, San Marzano and more.',
-    price: '$16.99',
-    asin: 'B072LKFN3P',
-    amazonUrl: amzUrl('B072LKFN3P'),
-    category: 'seed',
-    rating: '4.7',
-    reviewCount: '14,200',
-    emoji: '🍅',
-  },
-  herbSeedPack: {
-    id: 'herbSeedPack',
-    name: 'Culinary Herb Seeds Variety Pack (15 herbs)',
-    brand: 'Botanical Interests',
-    description: 'Basil, parsley, cilantro, dill, chives, thyme and more — heirloom, non-GMO.',
-    price: '$18.99',
-    asin: 'B01N9QJBGU',
-    amazonUrl: amzUrl('B01N9QJBGU'),
-    category: 'seed',
-    rating: '4.6',
-    reviewCount: '8,700',
-    emoji: '🌿',
-  },
-
-  // Tools
-  drip: {
-    id: 'drip',
-    name: 'Drip Irrigation Kit — 1/4" Soaker Hose System',
+  {
+    id: 'drip-irrigation',
+    name: 'Rain Bird Drip Irrigation Kit',
     brand: 'Rain Bird',
     description: 'Complete drip irrigation kit for garden beds. Reduces water use by 50% vs overhead.',
-    price: '$34.99',
-    asin: 'B007PBIVBM',
-    amazonUrl: amzUrl('B007PBIVBM'),
-    category: 'tool',
-    rating: '4.4',
-    reviewCount: '12,800',
-    emoji: '💧',
+    category: 'Irrigation',
+    forIssues: ['watering', 'drought_stress', 'underwatering', 'irrigation'],
+    rating: 4.4,
+    reviewCount: 12800,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B000BQRKMI', '$34.99'),
+      HD('rain-bird-drip-irrigation-kit', '$35.49'),
+    ],
   },
-  gardenKneeler: {
-    id: 'gardenKneeler',
-    name: 'Garden Kneeler & Seat with Tool Pouch',
-    brand: 'Gorilla Grip',
-    description: 'Converts from kneeler to seat. Ergonomic handle for easy stand-up. Includes tool pouches.',
-    price: '$39.99',
-    asin: 'B07Y6CXMXQ',
-    amazonUrl: amzUrl('B07Y6CXMXQ'),
-    category: 'tool',
-    rating: '4.5',
-    reviewCount: '18,900',
-    emoji: '🧰',
-  },
-  rowCover: {
-    id: 'rowCover',
-    name: 'Floating Row Cover — 6 ft x 25 ft',
-    brand: 'Agribon',
-    description: 'Protects plants from frost, insects, and birds. Extends season by 4–6 weeks.',
-    price: '$19.99',
-    asin: 'B00BSYWJNO',
-    amazonUrl: amzUrl('B00BSYWJNO'),
-    category: 'tool',
-    rating: '4.5',
-    reviewCount: '7,600',
-    emoji: '🏕️',
-  },
-  gardenPruner: {
-    id: 'gardenPruner',
-    name: 'Bypass Pruning Shears — Stainless Steel',
+  {
+    id: 'felco-pruners',
+    name: 'Felco F-2 Classic Manual Hand Pruner',
     brand: 'Felco',
     description: 'Professional-grade pruners. Clean cuts prevent disease spread. Replaceable blades.',
-    price: '$49.99',
-    asin: 'B000BVRNSS',
-    amazonUrl: amzUrl('B000BVRNSS'),
-    category: 'tool',
-    rating: '4.8',
-    reviewCount: '22,400',
-    emoji: '✂️',
+    category: 'Tools',
+    forIssues: ['tools', 'pruning', 'disease_prevention'],
+    rating: 4.8,
+    reviewCount: 22400,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B00004SD56', '$49.99'),
+      HD('felco-f-2-hand-pruner', '$51.99'),
+    ],
   },
-  soilTester: {
-    id: 'soilTester',
-    name: 'Digital pH & Moisture Soil Tester',
-    brand: 'Sonkir',
-    description: '3-in-1 soil tester for pH, moisture, and light. No batteries required.',
-    price: '$16.99',
-    asin: 'B07M4FDGFZ',
-    amazonUrl: amzUrl('B07M4FDGFZ'),
-    category: 'tool',
-    rating: '4.4',
-    reviewCount: '28,700',
-    emoji: '🔬',
+  {
+    id: 'row-covers',
+    name: 'Agribon AG-19 Floating Row Cover',
+    brand: 'Agribon',
+    description: 'Protects plants from frost, insects, and birds. Extends season by 4–6 weeks.',
+    category: 'Season Extension',
+    forIssues: ['frost_protection', 'pests', 'season_extension', 'insect_barrier'],
+    rating: 4.5,
+    reviewCount: 7600,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B005QBVDPG', '$19.99'),
+      HD('agribon-floating-row-cover', '$20.49'),
+    ],
   },
-};
-
-// ---------------------------------------------------------------------------
-// Diagnosis → Product Mapping
-// ---------------------------------------------------------------------------
-export const DIAGNOSIS_PRODUCTS: Record<string, AffiliateProduct[]> = {
-  // Fungal diseases
-  'powdery mildew': [PRODUCTS.serenade, PRODUCTS.copperFungicide, PRODUCTS.neemOil],
-  'downy mildew': [PRODUCTS.copperFungicide, PRODUCTS.daconil, PRODUCTS.serenade],
-  blight: [PRODUCTS.copperFungicide, PRODUCTS.daconil, PRODUCTS.serenade],
-  'early blight': [PRODUCTS.copperFungicide, PRODUCTS.daconil, PRODUCTS.serenade],
-  'late blight': [PRODUCTS.daconil, PRODUCTS.copperFungicide, PRODUCTS.serenade],
-  fungus: [PRODUCTS.copperFungicide, PRODUCTS.serenade, PRODUCTS.daconil],
-  disease: [PRODUCTS.copperFungicide, PRODUCTS.serenade, PRODUCTS.daconil],
-  'gray mold': [PRODUCTS.serenade, PRODUCTS.copperFungicide, PRODUCTS.daconil],
-  'leaf spot': [PRODUCTS.copperFungicide, PRODUCTS.daconil, PRODUCTS.serenade],
-  'root rot': [PRODUCTS.perlite, PRODUCTS.serenade, PRODUCTS.copperFungicide],
-  'damping off': [PRODUCTS.serenade, PRODUCTS.perlite, PRODUCTS.copperFungicide],
-
-  // Pest diagnoses
-  aphid: [PRODUCTS.insecticidalSoap, PRODUCTS.neemOil, PRODUCTS.pyrethrin],
-  aphids: [PRODUCTS.insecticidalSoap, PRODUCTS.neemOil, PRODUCTS.pyrethrin],
-  'spider mite': [PRODUCTS.neemOil, PRODUCTS.insecticidalSoap, PRODUCTS.pyrethrin],
-  'spider mites': [PRODUCTS.neemOil, PRODUCTS.insecticidalSoap, PRODUCTS.pyrethrin],
-  whitefly: [PRODUCTS.insecticidalSoap, PRODUCTS.neemOil, PRODUCTS.pyrethrin],
-  whiteflies: [PRODUCTS.insecticidalSoap, PRODUCTS.neemOil, PRODUCTS.pyrethrin],
-  caterpillar: [PRODUCTS.btKurstaki, PRODUCTS.pyrethrin, PRODUCTS.neemOil],
-  'cabbage worm': [PRODUCTS.btKurstaki, PRODUCTS.neemOil, PRODUCTS.rowCover],
-  hornworm: [PRODUCTS.btKurstaki, PRODUCTS.pyrethrin, PRODUCTS.neemOil],
-  slug: [PRODUCTS.sluggo, PRODUCTS.copperFungicide, PRODUCTS.rowCover],
-  slugs: [PRODUCTS.sluggo, PRODUCTS.copperFungicide, PRODUCTS.rowCover],
-  'vine borer': [PRODUCTS.btKurstaki, PRODUCTS.rowCover, PRODUCTS.neemOil],
-  scale: [PRODUCTS.neemOil, PRODUCTS.insecticidalSoap, PRODUCTS.pyrethrin],
-  mealybug: [PRODUCTS.insecticidalSoap, PRODUCTS.neemOil, PRODUCTS.pyrethrin],
-  thrips: [PRODUCTS.insecticidalSoap, PRODUCTS.neemOil, PRODUCTS.pyrethrin],
-  'fungus gnat': [PRODUCTS.btKurstaki, PRODUCTS.insecticidalSoap, PRODUCTS.neemOil],
-
-  // Nutrient deficiencies
-  'nitrogen deficiency': [PRODUCTS.fishEmulsion, PRODUCTS.bloodMeal, PRODUCTS.espomaTomato],
-  yellowing: [PRODUCTS.fishEmulsion, PRODUCTS.chelatedIron, PRODUCTS.espomaTomato],
-  yellow: [PRODUCTS.fishEmulsion, PRODUCTS.chelatedIron, PRODUCTS.espomaTomato],
-  chlorosis: [PRODUCTS.chelatedIron, PRODUCTS.fishEmulsion, PRODUCTS.espomaTomato],
-  'iron deficiency': [PRODUCTS.chelatedIron, PRODUCTS.sulfur, PRODUCTS.soilTester],
-  'calcium deficiency': [PRODUCTS.calciumSpray, PRODUCTS.lime, PRODUCTS.espomaTomato],
-  'blossom end rot': [PRODUCTS.calciumSpray, PRODUCTS.espomaTomato, PRODUCTS.drip],
-  'magnesium deficiency': [PRODUCTS.lime, PRODUCTS.espomaTomato, PRODUCTS.wormCastings],
-  pale: [PRODUCTS.fishEmulsion, PRODUCTS.bloodMeal, PRODUCTS.espomaTomato],
-
-  // Watering issues
-  overwatering: [PRODUCTS.perlite, PRODUCTS.soilTester, PRODUCTS.drip],
-  underwatering: [PRODUCTS.drip, PRODUCTS.soilTester, PRODUCTS.compost],
-  'drought stress': [PRODUCTS.drip, PRODUCTS.compost, PRODUCTS.rowCover],
-  wilting: [PRODUCTS.drip, PRODUCTS.soilTester, PRODUCTS.compost],
-
-  // Soil issues
-  'compacted soil': [PRODUCTS.compost, PRODUCTS.perlite, PRODUCTS.wormCastings],
-  'acidic soil': [PRODUCTS.lime, PRODUCTS.compost, PRODUCTS.soilTester],
-  'alkaline soil': [PRODUCTS.sulfur, PRODUCTS.chelatedIron, PRODUCTS.soilTester],
-  'ph imbalance': [PRODUCTS.soilTester, PRODUCTS.lime, PRODUCTS.sulfur],
-  'poor soil': [PRODUCTS.compost, PRODUCTS.wormCastings, PRODUCTS.espomaTomato],
-
-  // Healthy
-  'healthy plant': [PRODUCTS.espomaTomato, PRODUCTS.drip, PRODUCTS.gardenPruner],
-  healthy: [PRODUCTS.espomaTomato, PRODUCTS.drip, PRODUCTS.gardenPruner],
-};
-
-const FALLBACK_PRODUCTS: AffiliateProduct[] = [
-  PRODUCTS.espomaTomato,
-  PRODUCTS.neemOil,
-  PRODUCTS.soilTester,
+  {
+    id: 'garden-lime',
+    name: 'Espoma Organic Garden Lime',
+    brand: 'Espoma',
+    description: 'Raises soil pH and provides calcium and magnesium. Essential for acidic garden soils.',
+    category: 'Soil Amendment',
+    forIssues: ['pH', 'acidic_soil', 'ph_low', 'soil_pH'],
+    rating: 4.6,
+    reviewCount: 7200,
+    primaryStore: 'amazon',
+    buyLinks: [
+      AMZ('B00002N8Q5', '$9.99'),
+      HD('espoma-organic-garden-lime', '$10.49'),
+    ],
+  },
 ];
 
-export function getProductsForDiagnosis(
-  problem: string,
-  _severity: string
-): AffiliateProduct[] {
-  if (!problem) return FALLBACK_PRODUCTS;
+// ─── Helper Functions ─────────────────────────────────────────────────────────
 
-  const needle = problem.toLowerCase().trim();
-
-  if (DIAGNOSIS_PRODUCTS[needle]) return DIAGNOSIS_PRODUCTS[needle].slice(0, 3);
-
-  const keys = Object.keys(DIAGNOSIS_PRODUCTS);
-  for (const key of keys) {
-    if (needle.includes(key)) return DIAGNOSIS_PRODUCTS[key].slice(0, 3);
-  }
-
-  const words = needle.split(/\s+/).filter(w => w.length > 3);
-  for (const word of words) {
-    for (const key of keys) {
-      if (key.includes(word)) return DIAGNOSIS_PRODUCTS[key].slice(0, 3);
-    }
-  }
-
-  return FALLBACK_PRODUCTS;
+export function getProductsByIssue(issue: string): Product[] {
+  return PRODUCTS.filter(p => p.forIssues.includes(issue));
 }
 
-export async function trackAffiliateClick(
-  product: AffiliateProduct,
-  diagnosis: string
-): Promise<void> {
+export function getPrimaryBuyLink(product: Product): BuyLink {
+  return product.buyLinks.find(l => l.store === product.primaryStore) || product.buyLinks[0];
+}
+
+export function getAllProducts(): Product[] {
+  return PRODUCTS;
+}
+
+export function getProductsByCategory(category: string): Product[] {
+  return PRODUCTS.filter(p => p.category === category);
+}
+
+export { PRODUCTS };
+
+// ─── Backward-compatible getProductsForDiagnosis ─────────────────────────────
+
+export function getProductsForDiagnosis(problem: string, _severity?: string): Product[] {
+  if (!problem) return PRODUCTS.slice(0, 3);
+
+  const needle = problem.toLowerCase().trim();
+  const tag = needle.replace(/\s+/g, '_');
+
+  // 1. Direct tag match
+  const direct = getProductsByIssue(tag);
+  if (direct.length > 0) return direct.slice(0, 3);
+
+  // 2. Fuzzy match on forIssues
+  const fuzzy = PRODUCTS.filter(p =>
+    p.forIssues.some(issue =>
+      needle.includes(issue.replace(/_/g, ' ')) ||
+      issue.replace(/_/g, ' ').includes(needle)
+    )
+  );
+  if (fuzzy.length > 0) return fuzzy.slice(0, 3);
+
+  // 3. Keyword shortcuts
+  if (needle.includes('aphid') || needle.includes('mite') || needle.includes('insect') || needle.includes('pest')) {
+    return [PRODUCTS[2], PRODUCTS[5]];
+  }
+  if (needle.includes('fungus') || needle.includes('mildew') || needle.includes('blight')) {
+    return [PRODUCTS[3]];
+  }
+  if (needle.includes('yellow') || needle.includes('iron') || needle.includes('chlorosis')) {
+    return [PRODUCTS[9]];
+  }
+  if (needle.includes('soil') || needle.includes('drainage') || needle.includes('compact')) {
+    return [PRODUCTS[7], PRODUCTS[8]];
+  }
+  if (needle.includes('slug') || needle.includes('snail')) {
+    return [PRODUCTS[6]];
+  }
+
+  return [PRODUCTS[0], PRODUCTS[2], PRODUCTS[3]];
+}
+
+// ─── Affiliate Click Tracking ─────────────────────────────────────────────────
+
+export async function trackAffiliateClick(product: Product, diagnosis: string): Promise<void> {
   try {
-    const deviceId = await AsyncStorage.getItem('@gardengenius_device_id') ?? 'unknown';
+    const deviceId = (await AsyncStorage.getItem('@gardengenius_device_id')) ?? 'unknown';
+    const primaryLink = getPrimaryBuyLink(product);
     await supabase.from('affiliate_clicks').insert({
       device_id: deviceId,
-      product_asin: product.asin,
+      product_id: product.id,
       product_name: product.name,
+      store: primaryLink.store,
       diagnosis,
       app_version: '1.0.0',
     });
