@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A2E10"/>
+      <stop offset="100%" stop-color="#0F1A0A"/>
+    </radialGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFA000" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#5BAA2E" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#0F1A0A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="seedlingGlow" cx="50%" cy="60%" r="40%">
+      <stop offset="0%" stop-color="#FFC947" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#FFA000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="ringGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <!-- Clip to rounded square for App Store -->
+    <clipPath id="appIcon">
+      <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#appIcon)">
+    <!-- Background -->
+    <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+
+    <!-- Ambient glow center -->
+    <ellipse cx="512" cy="512" rx="380" ry="380" fill="url(#glowGrad)"/>
+
+    <!-- Score Ring — outer track (dark) -->
+    <circle cx="512" cy="512" r="340" fill="none" stroke="#1E3A12" stroke-width="52"/>
+
+    <!-- Score Ring — filled arc (vine green, ~270° = 3/4 full) -->
+    <!-- Arc from -210deg to 60deg clockwise = 270deg sweep -->
+    <path
+      d="M 512 172
+         A 340 340 0 1 1 172 512"
+      fill="none"
+      stroke="#5BAA2E"
+      stroke-width="52"
+      stroke-linecap="round"
+      filter="url(#ringGlow)"
+    />
+
+    <!-- Ring highlight — bright lime at leading edge -->
+    <circle cx="172" cy="512" r="26" fill="#8BC34A" filter="url(#softGlow)"/>
+
+    <!-- Ring subtle shimmer line on top -->
+    <path
+      d="M 512 172
+         A 340 340 0 1 1 172 512"
+      fill="none"
+      stroke="#8BC34A"
+      stroke-width="6"
+      stroke-linecap="round"
+      opacity="0.5"
+    />
+
+    <!-- Seedling glow (warm backlight) -->
+    <ellipse cx="512" cy="580" rx="180" ry="150" fill="url(#seedlingGlow)"/>
+
+    <!-- Stem -->
+    <line x1="512" y1="680" x2="512" y2="500" stroke="#5BAA2E" stroke-width="22" stroke-linecap="round"/>
+
+    <!-- Left leaf (cotyledon) -->
+    <ellipse
+      cx="440" cy="530"
+      rx="90" ry="44"
+      fill="#8BC34A"
+      transform="rotate(-35 440 530)"
+      opacity="0.95"
+    />
+    <!-- Left leaf vein -->
+    <line x1="470" y1="516" x2="416" y2="548" stroke="#5BAA2E" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- Right leaf (cotyledon) -->
+    <ellipse
+      cx="584" cy="530"
+      rx="90" ry="44"
+      fill="#8BC34A"
+      transform="rotate(35 584 530)"
+      opacity="0.95"
+    />
+    <!-- Right leaf vein -->
+    <line x1="554" y1="516" x2="608" y2="548" stroke="#5BAA2E" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- First true leaf (top center, tiny) -->
+    <ellipse
+      cx="512" cy="488"
+      rx="38" ry="20"
+      fill="#A5D65A"
+      opacity="0.90"
+    />
+
+    <!-- Soil line -->
+    <rect x="350" y="680" width="324" height="18" rx="9" fill="#5D4037" opacity="0.70"/>
+
+    <!-- Soil texture dots -->
+    <circle cx="390" cy="688" r="4" fill="#8D6E63" opacity="0.5"/>
+    <circle cx="440" cy="692" r="3" fill="#8D6E63" opacity="0.4"/>
+    <circle cx="580" cy="686" r="4" fill="#8D6E63" opacity="0.5"/>
+    <circle cx="635" cy="690" r="3" fill="#8D6E63" opacity="0.4"/>
+
+    <!-- Golden dew drop on right leaf -->
+    <ellipse cx="606" cy="514" rx="10" ry="13" fill="#FFC947" opacity="0.80" transform="rotate(20 606 514)"/>
+    <ellipse cx="603" cy="511" rx="4" ry="5" fill="#FFE082" opacity="0.70" transform="rotate(20 603 511)"/>
+  </g>
+</svg>
