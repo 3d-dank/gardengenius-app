@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "LawnGenius",
+    "slug": "lawngenius",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#1B4332"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.topdogai.lawngenius",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "LawnIQ uses your location to map your yard boundary and provide zone-specific lawn care recommendations.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "LawnIQ uses your location to map your yard boundary and provide zone-specific lawn care recommendations."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1B4332"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.topdogai.lawngenius"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-location",
+      ["expo-notifications", {
+        "icon": "./assets/icon.png",
+        "color": "#1B4332"
+      }],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "LawnGenius uses your photos to analyze your lawn."
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          "googleMapsApiKey": ""
+        }
+      ]
+    ],
+    "owner": "jdankey",
+    "extra": {
+      "eas": {
+        "projectId": "d75fe288-81e6-4100-a4f6-5628be2452e3"
+      }
+    }
+  }
+}
