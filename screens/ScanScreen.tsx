@@ -1,600 +1,513 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Image,
-  ActivityIndicator, ScrollView, Alert, Animated, Dimensions,
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  Dimensions,
+  StyleSheet,
+  TextInput,
+  Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle } from 'react-native-svg';
+import { COLORS, GRADIENTS, GLASS, SPACING, RADIUS, geniusScoreColor } from '../lib/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { logScan } from '../lib/scanLogger';
-import { getProductsForDiagnosis } from '../lib/products';
-import ProductCarousel from '../components/ProductCarousel';
-import {
-  COLORS, GRADIENTS, GLASS, NEO, RADIUS, SPACING,
-  getSeverityColor,
-} from '../lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_KEY ?? '';
-const HISTORY_KEY = '@gardengenius_history';
+const CAMERA_HEIGHT = (SCREEN_WIDTH - SPACING.md * 2) * (3 / 4);
 
-const ANALYZING_STEPS = [
-  'Identifying plant species...',
-  'Scanning for diseases & pests...',
-  'Consulting plant pathology database...',
-  'Preparing care recommendations...',
-];
+const SMALL_RING = 100;
+const SMALL_STROKE = 10;
+const SMALL_RADIUS = (SMALL_RING - SMALL_STROKE) / 2;
+const SMALL_CIRCUMFERENCE = 2 * Math.PI * SMALL_RADIUS;
 
-interface Diagnosis {
-  problem: string;
+type ScanMode = 'diagnose' | 'identify';
+
+interface Issue {
+  name: string;
+  severity: number;
   confidence: number;
-  severity: string;
-  description: string;
-  treatment: string;
-  timing: string;
-  preventionTip: string;
+  recommendation: string;
 }
 
-interface HistoryEntry {
-  id: string;
-  date: string;
-  imageUri: string;
-  problem: string;
-  confidence: number;
-  severity: string;
-  description: string;
-  treatment: string;
-  timing: string;
+interface ScanResult {
+  mode: ScanMode;
+  healthScore: number;
+  primaryIssue: string | null;
+  issues: Issue[];
+  species: string | null;
+  botanicalName: string | null;
+  growthStage: string | null;
+  daysToHarvest: number | null;
+  careTips: string[];
+  productRecommendations: string[];
 }
 
-/** Breathing / pulsing ring for scan button */
-function BreathingRing() {
-  const scale1 = useRef(new Animated.Value(1)).current;
-  const scale2 = useRef(new Animated.Value(1)).current;
-  const opacity1 = useRef(new Animated.Value(0.5)).current;
-  const opacity2 = useRef(new Animated.Value(0.3)).current;
+const SEVERITY_COLORS: Record<number, string> = {
+  1: COLORS.springLeaf,
+  2: COLORS.freshGrowth,
+  3: COLORS.sunflower,
+  4: COLORS.peachBloom,
+  5: COLORS.bloomRed,
+};
+
+function SmallScoreRing({ score }: { score: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const [display, setDisplay] = useState(0);
+  const scoreColor = geniusScoreColor(score);
+  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
   useEffect(() => {
-    const loop1 = Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(scale1, { toValue: 1.3, duration: 1600, useNativeDriver: true }),
-          Animated.timing(scale1, { toValue: 1, duration: 1600, useNativeDriver: true }),
-        ]),
-        Animated.sequence([
-          Animated.timing(opacity1, { toValue: 0, duration: 1600, useNativeDriver: true }),
-          Animated.timing(opacity1, { toValue: 0.5, duration: 1600, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    const loop2 = Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(scale2, { toValue: 1.55, duration: 2000, delay: 400, useNativeDriver: true }),
-          Animated.timing(scale2, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        ]),
-        Animated.sequence([
-          Animated.timing(opacity2, { toValue: 0, duration: 2000, delay: 400, useNativeDriver: true }),
-          Animated.timing(opacity2, { toValue: 0.3, duration: 2000, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    loop1.start();
-    loop2.start();
-  }, []);
+    Animated.timing(anim, { toValue: score, duration: 1000, useNativeDriver: false }).start();
+    anim.addListener(({ value }) => setDisplay(Math.round(value)));
+    return () => anim.removeAllListeners();
+  }, [score]);
+
+  const strokeDashoffset = anim.interpolate({
+    inputRange: [0, 100],
+    outputRange: [SMALL_CIRCUMFERENCE, SMALL_CIRCUMFERENCE - (SMALL_CIRCUMFERENCE * score) / 100],
+  });
 
   return (
-    <>
-      <Animated.View style={[styles.breathRing, { transform: [{ scale: scale2 }], opacity: opacity2, borderColor: COLORS.limeAccent }]} />
-      <Animated.View style={[styles.breathRing, { transform: [{ scale: scale1 }], opacity: opacity1, borderColor: COLORS.limeAccent }]} />
-    </>
+    <View style={{ alignItems: 'center', marginVertical: SPACING.md }}>
+      <Svg width={SMALL_RING} height={SMALL_RING}>
+        <Circle
+          cx={SMALL_RING / 2}
+          cy={SMALL_RING / 2}
+          r={SMALL_RADIUS}
+          stroke={COLORS.surface2}
+          strokeWidth={SMALL_STROKE}
+          fill="none"
+        />
+        <AnimatedCircle
+          cx={SMALL_RING / 2}
+          cy={SMALL_RING / 2}
+          r={SMALL_RADIUS}
+          stroke={scoreColor}
+          strokeWidth={SMALL_STROKE}
+          fill="none"
+          strokeDasharray={SMALL_CIRCUMFERENCE}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${SMALL_RING / 2}, ${SMALL_RING / 2}`}
+        />
+      </Svg>
+      <View style={{ position: 'absolute', top: 0, left: 0, width: SMALL_RING, height: SMALL_RING, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 26, fontWeight: 'bold', color: COLORS.white }}>{display}</Text>
+        <Text style={{ fontSize: 8, color: COLORS.textMuted }}>HEALTH</Text>
+      </View>
+    </View>
   );
 }
 
 export default function ScanScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [mode, setMode] = useState<ScanMode>('diagnose');
   const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<Diagnosis | null>(null);
-  const [savedToast, setSavedToast] = useState(false);
-  const [analyzingStep, setAnalyzingStep] = useState(0);
-  const toastOpacity = useRef(new Animated.Value(0)).current;
-  const cameraRef = useRef<CameraView>(null);
-  const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const breatheAnim = useRef(new Animated.Value(1)).current;
+  const cardAnims = useRef<Animated.Value[]>([]).current;
 
   useEffect(() => {
-    if (analyzing) {
-      setAnalyzingStep(0);
-      stepInterval.current = setInterval(() => {
-        setAnalyzingStep(prev => (prev + 1) % ANALYZING_STEPS.length);
-      }, 1500);
-      Animated.timing(progressAnim, { toValue: 1, duration: 6000, useNativeDriver: false }).start();
-    } else {
-      if (stepInterval.current) clearInterval(stepInterval.current);
-      progressAnim.setValue(0);
-    }
-    return () => {
-      if (stepInterval.current) clearInterval(stepInterval.current);
-    };
-  }, [analyzing]);
-
-  const showToast = () => {
-    setSavedToast(true);
-    Animated.sequence([
-      Animated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.delay(1800),
-      Animated.timing(toastOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start(() => setSavedToast(false));
-  };
-
-  const saveToHistory = async (diagnosis: Diagnosis, imageUri: string) => {
-    try {
-      const raw = await AsyncStorage.getItem(HISTORY_KEY);
-      const history: HistoryEntry[] = raw ? JSON.parse(raw) : [];
-      const entry: HistoryEntry = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        imageUri,
-        problem: diagnosis.problem,
-        confidence: diagnosis.confidence,
-        severity: diagnosis.severity,
-        description: diagnosis.description,
-        treatment: diagnosis.treatment,
-        timing: diagnosis.timing,
-      };
-      history.unshift(entry);
-      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-      showToast();
-    } catch (e) {
-      console.warn('Failed to save history', e);
-    }
-  };
-
-  const getLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-    } catch {
-      return null;
-    }
-  };
-
-  const takePicture = async () => {
-    if (!cameraRef.current) return;
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    const pic = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.7 });
-    if (pic) { setPhoto(pic.uri); analyze(pic.base64!, pic.uri); }
-  };
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(breatheAnim, { toValue: 1.06, duration: 1000, useNativeDriver: true }),
+        Animated.timing(breatheAnim, { toValue: 1.0, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   const pickImage = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7 });
-    if (!res.canceled && res.assets[0]) {
-      setPhoto(res.assets[0].uri);
-      analyze(res.assets[0].base64!, res.assets[0].uri);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+      setResult(null);
     }
   };
 
-  const analyze = async (base64: string, imageUri: string) => {
-    setAnalyzing(true); setResult(null);
-    const locationPromise = getLocation();
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera access is required to scan plants.');
+      return;
+    }
+    const r = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (!r.canceled && r.assets[0]) {
+      setImageUri(r.assets[0].uri);
+      setResult(null);
+    }
+  };
 
+  const analyzeImage = async () => {
+    if (!imageUri) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Select a photo first');
+      return;
+    }
+    setAnalyzing(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Simulate AI analysis with mock data
+    await new Promise((res) => setTimeout(res, 2000));
+
+    const mockResult: ScanResult = {
+      mode,
+      healthScore: 72,
+      primaryIssue: mode === 'diagnose' ? 'Early aphid infestation' : null,
+      issues:
+        mode === 'diagnose'
+          ? [
+              { name: 'Aphid Infestation', severity: 2, confidence: 82, recommendation: 'Apply neem oil spray at dusk. Repeat every 7 days.' },
+              { name: 'Slight Nitrogen Deficiency', severity: 1, confidence: 65, recommendation: 'Apply balanced fertilizer, 1 tbsp/gallon, twice weekly.' },
+            ]
+          : [],
+      species: mode === 'identify' ? 'Cherry Tomato' : null,
+      botanicalName: mode === 'identify' ? 'Solanum lycopersicum var. cerasiforme' : null,
+      growthStage: mode === 'identify' ? 'Early fruiting' : null,
+      daysToHarvest: mode === 'identify' ? 18 : null,
+      careTips:
+        mode === 'identify'
+          ? [
+              'Ensure consistent watering — 1-2 inches per week',
+              'Support stems with cages as fruit develops',
+              'Remove suckers for larger fruit yield',
+            ]
+          : [],
+      productRecommendations: ['Neem Oil Concentrate', 'Balanced Organic Fertilizer'],
+    };
+
+    // Save to history
     try {
-      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o',
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `You are an expert plant pathologist and horticulturist. Analyze this garden plant photo and respond ONLY with valid JSON (no markdown) with these exact fields:
-{
-  "problem": "name of issue (e.g. 'Powdery Mildew', 'Aphid Infestation', 'Tomato Blight', 'Nutrient Deficiency', 'Root Rot', 'Overwatering') or 'Healthy Plant' if no issues",
-  "confidence": 85,
-  "severity": "Low|Medium|High|None",
-  "description": "2-3 sentence explanation covering plant species if identifiable, what you observe, and why it is concerning",
-  "treatment": "specific organic or chemical treatment recommendation with application method",
-  "timing": "when to apply treatment or next care step",
-  "preventionTip": "one actionable prevention tip for this specific issue"
-}
-Focus on: plant species identification, disease/pest diagnosis (blight, powdery mildew, aphids, scale, spider mites), nutrient deficiencies (nitrogen, iron, calcium), watering issues (overwatering, underwatering, root rot), and environmental stress.`,
-            },
-            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}`, detail: 'low' } }
-          ]
-        }],
-        max_tokens: 500,
-      }, { headers: { Authorization: `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' } });
+      const existing = await AsyncStorage.getItem('scanHistory');
+      const history = existing ? JSON.parse(existing) : [];
+      history.unshift({ ...mockResult, date: new Date().toISOString(), imageUri });
+      await AsyncStorage.setItem('scanHistory', JSON.stringify(history.slice(0, 50)));
+    } catch (_) {}
 
-      const text = response.data.choices[0].message.content;
-      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const diagnosis: Diagnosis = JSON.parse(cleaned);
-      setResult(diagnosis);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await saveToHistory(diagnosis, imageUri);
+    // Stagger card animations
+    const issueCount = mockResult.issues.length + mockResult.careTips.length + 2;
+    while (cardAnims.length < issueCount) cardAnims.push(new Animated.Value(0));
+    cardAnims.forEach((a) => a.setValue(0));
 
-      const location = await locationPromise;
-      logScan({
-        imageUri,
-        problem: diagnosis.problem,
-        severity: diagnosis.severity,
-        confidence: diagnosis.confidence,
-        description: diagnosis.description,
-        treatment: diagnosis.treatment,
-        timing: diagnosis.timing,
-        rawResponse: diagnosis,
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-      });
-    } catch (e) {
-      Alert.alert('Analysis failed', 'Could not analyze the image. Please try again.');
-    }
+    setResult(mockResult);
     setAnalyzing(false);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    Animated.stagger(
+      50,
+      cardAnims.map((a) =>
+        Animated.spring(a, { toValue: 1, damping: 18, stiffness: 100, useNativeDriver: true })
+      )
+    ).start();
   };
 
-  const reset = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPhoto(null);
-    setResult(null);
-  };
+  return (
+    <View style={{ flex: 1, backgroundColor: COLORS.surface0 }}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <LinearGradient colors={GRADIENTS.header} style={styles.header}>
+          <Text style={styles.headerTitle}>Scan Your Garden</Text>
+        </LinearGradient>
 
-  if (!permission) {
-    return (
-      <View style={styles.fullDark}>
-        <ActivityIndicator color={COLORS.limeAccent} size="large" />
-      </View>
-    );
-  }
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          {/* Mode Toggle */}
+          <View style={styles.modeRow}>
+            {(['diagnose', 'identify'] as ScanMode[]).map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.modePill, mode === m && styles.modePillActive]}
+                onPress={() => { setMode(m); setResult(null); }}
+              >
+                <Text style={[styles.modePillText, mode === m && styles.modePillTextActive]}>
+                  {m === 'diagnose' ? '🔍 Diagnose' : '🌿 Identify'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-  if (!permission.granted) {
-    return (
-      <View style={styles.fullDark}>
-        <LinearGradient colors={GRADIENTS.background} style={StyleSheet.absoluteFillObject} />
-        <SafeAreaView style={styles.permContainer}>
-          <Text style={styles.permIcon}>📷</Text>
-          <Text style={styles.permTitle}>Camera Access Needed</Text>
-          <Text style={styles.permText}>Allow camera to scan your plants for AI diagnosis</Text>
-          <TouchableOpacity style={[NEO.buttonPrimary, styles.permBtnWrap]} onPress={requestPermission}>
-            <LinearGradient colors={GRADIENTS.lime} style={styles.permBtn}>
-              <Text style={styles.permBtnText}>Allow Camera</Text>
+          {/* Camera Area */}
+          <TouchableOpacity
+            style={styles.cameraArea}
+            onPress={imageUri ? () => setImageUri(null) : takePhoto}
+            activeOpacity={0.9}
+          >
+            {imageUri ? (
+              <Text style={{ fontSize: 48 }}>📸</Text>
+            ) : (
+              <>
+                {/* Corner brackets */}
+                {[
+                  { top: 10, left: 10 },
+                  { top: 10, right: 10 },
+                  { bottom: 10, left: 10 },
+                  { bottom: 10, right: 10 },
+                ].map((pos, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.cornerBracket,
+                      pos,
+                      i === 1 && { transform: [{ scaleX: -1 }] },
+                      i === 2 && { transform: [{ scaleY: -1 }] },
+                      i === 3 && { transform: [{ scaleX: -1 }, { scaleY: -1 }] },
+                    ]}
+                  />
+                ))}
+                {/* Scan button */}
+                <Animated.View style={[styles.scanButton, { transform: [{ scale: breatheAnim }] }]}>
+                  <TouchableOpacity onPress={takePhoto} style={styles.scanButtonInner}>
+                    <Text style={{ fontSize: 32 }}>📷</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+                <Text style={styles.cameraHint}>Tap to take photo</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Pick from library */}
+          <TouchableOpacity style={styles.libraryBtn} onPress={pickImage}>
+            <Text style={styles.libraryBtnText}>📂 Choose from Library</Text>
+          </TouchableOpacity>
+
+          {/* Analyze Button */}
+          <TouchableOpacity onPress={analyzeImage} disabled={analyzing} style={{ marginHorizontal: SPACING.md, marginTop: SPACING.sm }}>
+            <LinearGradient
+              colors={analyzing ? [COLORS.surface2, COLORS.surface2] : [COLORS.freshGrowth, COLORS.vineGreen]}
+              style={styles.analyzeBtn}
+            >
+              <Text style={styles.analyzeBtnText}>
+                {analyzing ? '🔄 Analyzing...' : '🔍 Analyze Plant'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
-        </SafeAreaView>
-      </View>
-    );
-  }
 
-  // ── Photo / Result view ───────────────────────────────────────────────────
-  if (photo) {
-    return (
-      <View style={styles.fullDark}>
-        <LinearGradient colors={['#000', COLORS.surface0]} style={StyleSheet.absoluteFillObject} />
-        <SafeAreaView style={{ flex: 1 }}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Photo */}
-            <View style={styles.photoWrap}>
-              <Image source={{ uri: photo }} style={styles.preview} />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
-                style={styles.photoOverlay}
-              />
-            </View>
+          {/* Results */}
+          {result && (
+            <View style={{ marginTop: SPACING.lg }}>
+              <SmallScoreRing score={result.healthScore} />
 
-            {/* Analyzing state */}
-            {analyzing && (
-              <View style={[GLASS.card, styles.analyzingCard]}>
-                <View style={styles.progressTrack}>
-                  <Animated.View style={[
-                    styles.progressBar,
-                    {
-                      width: progressAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['0%', '100%'],
-                      }),
-                    }
-                  ]} />
+              {result.primaryIssue && (
+                <Text style={styles.primaryIssue}>⚠️ {result.primaryIssue}</Text>
+              )}
+
+              {result.species && (
+                <View style={[GLASS.card, { marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md }]}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.white }}>{result.species}</Text>
+                  <Text style={{ fontSize: 12, fontStyle: 'italic', color: COLORS.textMuted, marginTop: 2 }}>{result.botanicalName}</Text>
+                  {result.growthStage && <Text style={{ fontSize: 13, color: COLORS.springLeaf, marginTop: 4 }}>Stage: {result.growthStage}</Text>}
+                  {result.daysToHarvest !== null && (
+                    <Text style={{ fontSize: 13, color: COLORS.sunflower, marginTop: 2 }}>
+                      🌾 ~{result.daysToHarvest} days to harvest
+                    </Text>
+                  )}
                 </View>
-                <ActivityIndicator size="large" color={COLORS.limeAccent} style={{ marginTop: 16 }} />
-                <Text style={styles.analyzingText}>{ANALYZING_STEPS[analyzingStep]}</Text>
-                <Text style={styles.analyzingSub}>AI plant pathologist at work...</Text>
-              </View>
-            )}
+              )}
 
-            {/* Result card */}
-            {result && (
-              <View style={[GLASS.card, styles.resultCard]}>
-                {/* Severity badge */}
-                <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(result.severity) + '25', borderColor: getSeverityColor(result.severity) + '50' }]}>
-                  <Text style={[styles.severityText, { color: getSeverityColor(result.severity) }]}>
-                    {result.severity === 'None' ? '✅ Healthy Plant' : `⚠️ ${result.severity} Severity`}
+              {result.issues.map((issue, i) => {
+                const anim = cardAnims[i] ?? new Animated.Value(1);
+                return (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      GLASS.card,
+                      { marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md },
+                      {
+                        opacity: anim,
+                        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+                      },
+                    ]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                      <View style={[styles.severityDot, { backgroundColor: SEVERITY_COLORS[issue.severity] ?? COLORS.textMuted }]} />
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.white, flex: 1 }}>{issue.name}</Text>
+                      <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{issue.confidence}% confidence</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: COLORS.textMuted, lineHeight: 18 }}>{issue.recommendation}</Text>
+                  </Animated.View>
+                );
+              })}
+
+              {result.careTips.map((tip, i) => {
+                const anim = cardAnims[result.issues.length + i] ?? new Animated.Value(1);
+                return (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      GLASS.card,
+                      { marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md },
+                      {
+                        opacity: anim,
+                        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+                      },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 13, color: COLORS.petalCream, lineHeight: 18 }}>🌱 {tip}</Text>
+                  </Animated.View>
+                );
+              })}
+
+              {result.productRecommendations.length > 0 && (
+                <View style={[GLASS.card, { marginHorizontal: SPACING.md, padding: SPACING.md }]}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.white, marginBottom: 8 }}>
+                    Recommended Products
                   </Text>
+                  {result.productRecommendations.map((p, i) => (
+                    <TouchableOpacity key={i} style={styles.amazonBtn}>
+                      <Text style={styles.amazonBtnText}>🛒 {p} — Amazon</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-
-                <Text style={styles.problemTitle}>{result.problem}</Text>
-
-                {/* Confidence bar */}
-                <View style={styles.confidenceRow}>
-                  <Text style={styles.confidenceLabel}>AI Confidence</Text>
-                  <Text style={[styles.confidenceValue, { color: COLORS.limeAccent }]}>{result.confidence}%</Text>
-                </View>
-                <View style={styles.confidenceTrack}>
-                  <LinearGradient
-                    colors={GRADIENTS.lime}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={[styles.confidenceFill, { width: `${result.confidence}%` as any }]}
-                  />
-                </View>
-
-                <Text style={styles.description}>{result.description}</Text>
-
-                {[
-                  { icon: '💊', title: 'Treatment', text: result.treatment },
-                  { icon: '📅', title: 'Timing', text: result.timing },
-                  { icon: '🛡️', title: 'Prevention', text: result.preventionTip },
-                ].map((sec) => (
-                  <View key={sec.title} style={styles.section}>
-                    <Text style={styles.sectionTitle}>{sec.icon} {sec.title}</Text>
-                    <Text style={styles.sectionText}>{sec.text}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {result && (
-              <ProductCarousel
-                products={getProductsForDiagnosis(result.problem, result.severity)}
-                diagnosis={result.problem}
-              />
-            )}
-
-            {!analyzing && (
-              <TouchableOpacity style={[NEO.buttonSecondary, styles.resetBtnWrap]} onPress={reset}>
-                <View style={[GLASS.card, styles.resetBtn]}>
-                  <Text style={styles.resetBtnText}>📷  Scan Another Plant</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </SafeAreaView>
-
-        {savedToast && (
-          <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
-            <LinearGradient colors={GRADIENTS.lime} style={styles.toastInner}>
-              <Text style={styles.toastText}>✅ Saved to history</Text>
-            </LinearGradient>
-          </Animated.View>
-        )}
-      </View>
-    );
-  }
-
-  // ── Live camera view ───────────────────────────────────────────────────────
-  return (
-    <View style={{ flex: 1 }}>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back">
-        <SafeAreaView style={styles.overlay}>
-          {/* Top instructions */}
-          <View style={styles.instructionsWrap}>
-            <Text style={styles.instructions}>Point at your plant or affected leaf</Text>
-          </View>
-
-          {/* Scan frame with corner brackets */}
-          <View style={styles.frame}>
-            <View style={[styles.corner, styles.tl]} />
-            <View style={[styles.corner, styles.tr]} />
-            <View style={[styles.corner, styles.bl]} />
-            <View style={[styles.corner, styles.br]} />
-            <Text style={styles.frameTip}>Keep plant in frame</Text>
-          </View>
-
-          {/* Controls row */}
-          <View style={styles.controls}>
-            {/* Gallery button */}
-            <TouchableOpacity style={styles.galleryBtn} onPress={pickImage} activeOpacity={0.8}>
-              <View style={styles.galleryBtnInner}>
-                <Text style={styles.galleryText}>🖼</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Main capture button with breathing rings */}
-            <View style={styles.captureBtnWrap}>
-              <BreathingRing />
-              <TouchableOpacity onPress={takePicture} activeOpacity={0.85} style={styles.captureBtn}>
-                <LinearGradient
-                  colors={GRADIENTS.limeVibrant}
-                  style={styles.captureBtnInner}
-                />
-              </TouchableOpacity>
+              )}
             </View>
-
-            <View style={{ width: 56 }} />
-          </View>
-        </SafeAreaView>
-      </CameraView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fullDark: { flex: 1, backgroundColor: COLORS.surface0 },
-
-  // Permission screen
-  permContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
-  permIcon: { fontSize: 60, marginBottom: SPACING.md },
-  permTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 10, textAlign: 'center' },
-  permText: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xl },
-  permBtnWrap: { alignSelf: 'stretch' },
-  permBtn: { padding: SPACING.md, borderRadius: RADIUS.pill, alignItems: 'center' },
-  permBtnText: { color: COLORS.surface0, fontWeight: '800', fontSize: 16 },
-
-  // Photo / result
-  photoWrap: { position: 'relative' },
-  preview: { width: '100%', height: 300 },
-  photoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
+  header: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
   },
-
-  // Analyzing card
-  analyzingCard: {
-    margin: SPACING.md,
-    padding: SPACING.xl,
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    gap: SPACING.sm,
+  },
+  modePill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.5,
+    borderColor: COLORS.dewBorder,
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
-  progressTrack: {
-    width: '80%',
-    height: 3,
-    backgroundColor: COLORS.white10,
-    borderRadius: 2,
+  modePillActive: {
+    backgroundColor: COLORS.vineGreen,
+    borderColor: COLORS.springLeaf,
+  },
+  modePillText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+  },
+  modePillTextActive: {
+    color: COLORS.white,
+  },
+  cameraArea: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    height: CAMERA_HEIGHT,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.dewGlass,
+    borderWidth: 1.5,
+    borderColor: COLORS.dewBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
-  progressBar: {
-    height: 3,
-    backgroundColor: COLORS.limeAccent,
-    borderRadius: 2,
+  cornerBracket: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: COLORS.springLeaf,
+    borderRadius: 4,
   },
-  analyzingText: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '700', marginTop: 12, textAlign: 'center' },
-  analyzingSub: { color: COLORS.textMuted, fontSize: 13, marginTop: 6 },
-
-  // Result
-  resultCard: { margin: SPACING.md, padding: SPACING.md },
-  severityBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    marginBottom: 12,
+  scanButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.springLeaf,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.springLeaf,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  severityText: { fontWeight: '700', fontSize: 13 },
-  problemTitle: { fontSize: 26, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  confidenceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  confidenceLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600' },
-  confidenceValue: { fontSize: 12, fontWeight: '800' },
-  confidenceTrack: { height: 4, backgroundColor: COLORS.white10, borderRadius: 2, overflow: 'hidden', marginBottom: SPACING.md },
-  confidenceFill: { height: 4, borderRadius: 2 },
-  description: { fontSize: 15, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SPACING.md },
-  section: {
-    backgroundColor: 'rgba(139,195,74,0.08)',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+  scanButtonInner: {
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraHint: {
+    position: 'absolute',
+    bottom: 14,
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  libraryBtn: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  libraryBtnText: {
+    fontSize: 14,
+    color: COLORS.springLeaf,
+  },
+  analyzeBtn: {
+    paddingVertical: 16,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+  },
+  analyzeBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+  primaryIssue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.sunflower,
+    marginHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(139,195,74,0.15)',
+    textAlign: 'center',
   },
-  sectionTitle: { fontWeight: '700', color: COLORS.limeAccent, fontSize: 13, marginBottom: 6 },
-  sectionText: { color: COLORS.textSecondary, fontSize: 14, lineHeight: 20 },
-
-  resetBtnWrap: { margin: SPACING.md },
-  resetBtn: { padding: SPACING.md, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  resetBtnText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 16 },
-
-  // Toast
-  toast: { position: 'absolute', bottom: 32, alignSelf: 'center' },
-  toastInner: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: RADIUS.pill,
+  severityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SPACING.sm,
   },
-  toastText: { color: COLORS.surface0, fontWeight: '800', fontSize: 15 },
-
-  // Camera view
-  camera: { flex: 1 },
-  overlay: { flex: 1, justifyContent: 'space-between', padding: SPACING.md },
-  instructionsWrap: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+  amazonBtn: {
+    backgroundColor: 'rgba(255,160,0,0.15)',
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
     paddingHorizontal: SPACING.md,
-    paddingVertical: 8,
-    borderRadius: RADIUS.pill,
-    marginTop: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.borderBright,
+    marginTop: 6,
   },
-  instructions: { color: COLORS.white, fontSize: 14, fontWeight: '600', letterSpacing: 0.3 },
-
-  // Scan frame
-  frame: {
-    width: 260,
-    height: 260,
-    alignSelf: 'center',
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  corner: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderColor: COLORS.limeAccent,
-    borderWidth: 3,
-  },
-  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
-  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
-  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
-  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
-  frameTip: { fontSize: 11, color: COLORS.limeAccent, letterSpacing: 1, fontWeight: '600' },
-
-  // Controls
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: SPACING.md,
-    paddingHorizontal: SPACING.md,
-  },
-  galleryBtn: { width: 56, height: 56, borderRadius: 28 },
-  galleryBtnInner: {
-    width: 56, height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryText: { fontSize: 22 },
-
-  // Capture button
-  captureBtnWrap: {
-    width: 90, height: 90,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  breathRing: {
-    position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-  },
-  captureBtn: {
-    width: 76, height: 76,
-    borderRadius: 38,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: COLORS.limeAccent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 10,
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.9)',
-  },
-  captureBtnInner: {
-    width: 62, height: 62, borderRadius: 31,
+  amazonBtnText: {
+    fontSize: 13,
+    color: COLORS.sunflower,
+    fontWeight: '600',
   },
 });
